@@ -1,0 +1,238 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-actions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout nipyapi-actions
+        uses: actions/checkout@v4
+
+      - name: Checkout nipyapi (for infrastructure)
+        uses: actions/checkout@v4
+        with:
+          repository: Chaffelson/nipyapi
+          ref: feature/github-cicd-versioning
+          path: nipyapi-infra
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install action dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate certificates
+        run: cd nipyapi-infra && make certs
+
+      - name: Start NiFi infrastructure
+        run: cd nipyapi-infra && make up NIPYAPI_PROFILE=github-cicd
+
+      - name: Wait for NiFi to be ready
+        run: cd nipyapi-infra && make wait-ready NIPYAPI_PROFILE=github-cicd
+
+      # Test: Ensure Registry Client
+      # Note: PAT required - GITHUB_TOKEN doesn't work with NiFi's GitHub Flow Registry Client
+      - name: Test ensure-registry
+        uses: ./
+        id: registry
+        with:
+          command: ensure-registry
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          github-registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
+          github-registry-repo: ${{ github.repository }}
+          registry-client-name: 'ci-test-registry'
+          repository-path: 'tests'
+
+      - name: Verify registry output
+        run: |
+          echo "Registry Client ID: ${{ steps.registry.outputs.registry-client-id }}"
+          if [ -z "${{ steps.registry.outputs.registry-client-id }}" ]; then
+            echo "ERROR: registry-client-id not set"
+            exit 1
+          fi
+
+      # Test: Deploy Flow
+      - name: Test deploy-flow
+        uses: ./
+        id: deploy
+        with:
+          command: deploy-flow
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
+          bucket: flows
+          flow: cicd-demo-flow
+
+      - name: Verify deploy output
+        run: |
+          echo "Process Group ID: ${{ steps.deploy.outputs.process-group-id }}"
+          echo "Deployed Version: ${{ steps.deploy.outputs.deployed-version }}"
+          if [ -z "${{ steps.deploy.outputs.process-group-id }}" ]; then
+            echo "ERROR: process-group-id not set"
+            exit 1
+          fi
+
+      # Test: Start Flow
+      - name: Test start-flow
+        uses: ./
+        id: start
+        with:
+          command: start-flow
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+          enable-controllers: 'true'
+
+      - name: Verify flow started
+        run: |
+          echo "Flow started: ${{ steps.start.outputs.started }}"
+
+      # Test: Get Status
+      - name: Test get-status
+        uses: ./
+        id: status
+        with:
+          command: get-status
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify status output
+        run: |
+          echo "State: ${{ steps.status.outputs.state }}"
+          echo "Running Processors: ${{ steps.status.outputs.running-processors }}"
+          echo "Enabled Controllers: ${{ steps.status.outputs.enabled-controllers }}"
+          if [ "${{ steps.status.outputs.state }}" != "RUNNING" ]; then
+            echo "WARNING: Expected RUNNING state"
+          fi
+
+      # Test: HTTP Endpoint (default version)
+      - name: Test HTTP endpoint (default version)
+        run: |
+          echo "Testing HTTP endpoint..."
+          sleep 2
+          HTTP_RESPONSE=$(curl -s -i http://localhost:8080/version 2>/dev/null || echo "FAILED")
+          echo "$HTTP_RESPONSE"
+          VERSION=$(echo "$HTTP_RESPONSE" | grep -i "^version:" | cut -d' ' -f2 | tr -d '\r')
+          echo "Version header: [$VERSION]"
+          if [ "$VERSION" = "1.0.0" ]; then
+            echo "SUCCESS: Default version is 1.0.0"
+          else
+            echo "WARNING: Expected 1.0.0, got $VERSION"
+          fi
+
+      # Test: Configure Parameters
+      - name: Test configure-params
+        uses: ./
+        id: params
+        with:
+          command: configure-params
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+          parameters: '{"version": "2.0.0"}'
+
+      - name: Verify parameters updated
+        run: |
+          echo "Parameters Updated: ${{ steps.params.outputs.parameters-updated }}"
+          echo "Success: ${{ steps.params.outputs.success }}"
+
+      # Test: HTTP Endpoint (updated version)
+      - name: Test HTTP endpoint (updated version)
+        run: |
+          echo "Testing HTTP endpoint after parameter update..."
+          sleep 2
+          HTTP_RESPONSE=$(curl -s -i http://localhost:8080/version 2>/dev/null || echo "FAILED")
+          echo "$HTTP_RESPONSE"
+          VERSION=$(echo "$HTTP_RESPONSE" | grep -i "^version:" | cut -d' ' -f2 | tr -d '\r')
+          echo "Version header: [$VERSION]"
+          if [ "$VERSION" = "2.0.0" ]; then
+            echo "SUCCESS: Version updated to 2.0.0"
+          else
+            echo "WARNING: Expected 2.0.0, got $VERSION"
+          fi
+
+      # Test: Stop Flow
+      - name: Test stop-flow
+        uses: ./
+        id: stop
+        with:
+          command: stop-flow
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+          disable-controllers: 'true'
+
+      - name: Verify flow stopped
+        run: |
+          echo "Flow stopped: ${{ steps.stop.outputs.stopped }}"
+
+      # Test: Cleanup
+      - name: Test cleanup
+        if: always()
+        uses: ./
+        id: cleanup
+        with:
+          command: cleanup
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+          force-delete: 'true'
+          delete-parameter-context: 'true'
+
+      - name: Verify cleanup
+        if: always()
+        run: |
+          echo "Deleted: ${{ steps.cleanup.outputs.deleted }}"
+          echo "Deleted Name: ${{ steps.cleanup.outputs.deleted-name }}"
+
+      # Summary
+      - name: Test Summary
+        if: always()
+        run: |
+          echo ""
+          echo "============================================"
+          echo "CI TEST SUMMARY"
+          echo "============================================"
+          echo "Registry Client: ${{ steps.registry.outputs.registry-client-name }} (${{ steps.registry.outputs.registry-client-id }})"
+          echo "Process Group: ${{ steps.deploy.outputs.process-group-name }} (${{ steps.deploy.outputs.process-group-id }})"
+          echo "Deployed Version: ${{ steps.deploy.outputs.deployed-version }}"
+          echo "Final State: ${{ steps.status.outputs.state }}"
+          echo "Cleanup Status: ${{ steps.cleanup.outputs.deleted }}"
+          echo "============================================"
+
+      # Cleanup infrastructure
+      - name: Stop NiFi infrastructure
+        if: always()
+        run: cd nipyapi-infra && make down

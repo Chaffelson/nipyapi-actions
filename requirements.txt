@@ -1,0 +1,3 @@
+# Install nipyapi from feature branch with env profile support
+# TODO: Change to nipyapi>=1.1.0 once released to PyPI
+git+https://github.com/Chaffelson/nipyapi.git@feature/github-cicd-versioning#egg=nipyapi

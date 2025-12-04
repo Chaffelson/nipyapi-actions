@@ -1,0 +1,323 @@
+name: 'NiFi Flow CI/CD'
+description: 'CI/CD actions for Apache NiFi flows using nipyapi'
+author: 'Chaffelson'
+
+inputs:
+  # Command selection
+  command:
+    description: 'Command to execute: ensure-registry, deploy-flow, start-flow, stop-flow, cleanup, configure-params, get-status'
+    required: true
+
+  # NiFi Connection - names match nipyapi ENV_VAR_MAPPINGS
+  nifi-api-endpoint:
+    description: 'NiFi API endpoint URL (e.g., https://nifi.example.com:9443/nifi-api)'
+    required: true
+  nifi-username:
+    description: 'NiFi username for basic authentication'
+    required: false
+    default: ''
+  nifi-password:
+    description: 'NiFi password for basic authentication'
+    required: false
+    default: ''
+  nifi-verify-ssl:
+    description: 'Whether to verify SSL certificates (true/false)'
+    required: false
+    default: 'true'
+  nipyapi-suppress-ssl-warnings:
+    description: 'Suppress SSL warnings (true/false)'
+    required: false
+    default: 'false'
+
+  # GitHub Registry Client configuration
+  github-registry-token:
+    description: 'GitHub PAT for repository access (required - GITHUB_TOKEN does not work with NiFi GitHub Flow Registry Client)'
+    required: false
+    default: ''
+  github-registry-repo:
+    description: 'GitHub repository in owner/repo format (default: from github.repository context)'
+    required: false
+    default: ''
+  github-registry-branch:
+    description: 'Default branch for the registry client'
+    required: false
+    default: 'main'
+
+  # ensure-registry command inputs (not in nipyapi env vars)
+  registry-client-name:
+    description: 'Name for the registry client'
+    required: false
+    default: 'GitHub-FlowRegistry'
+  repository-path:
+    description: 'Path within repository to use as root (default: empty = repo root)'
+    required: false
+    default: ''
+  github-api-url:
+    description: 'GitHub API URL'
+    required: false
+    default: 'https://api.github.com/'
+
+  # deploy-flow command inputs
+  registry-client-id:
+    description: 'ID of the registry client'
+    required: false
+    default: ''
+  bucket:
+    description: 'Bucket (folder) containing the flow'
+    required: false
+    default: ''
+  flow:
+    description: 'Flow name (filename without .json)'
+    required: false
+    default: ''
+  branch:
+    description: 'Branch to deploy from (default: registry client default)'
+    required: false
+    default: ''
+  version:
+    description: 'Specific version (commit SHA) to deploy (default: latest)'
+    required: false
+    default: ''
+  parent-process-group-id:
+    description: 'Parent Process Group ID to deploy into (default: root)'
+    required: false
+    default: ''
+  location-x:
+    description: 'X coordinate for placement on canvas'
+    required: false
+    default: ''
+  location-y:
+    description: 'Y coordinate for placement on canvas'
+    required: false
+    default: ''
+
+  # start-flow / stop-flow command inputs
+  process-group-id:
+    description: 'ID of the Process Group'
+    required: false
+    default: ''
+  enable-controllers:
+    description: 'Enable controller services when starting (default: true)'
+    required: false
+    default: 'true'
+  disable-controllers:
+    description: 'Disable controller services when stopping (default: true)'
+    required: false
+    default: 'true'
+
+  # cleanup command inputs
+  force-delete:
+    description: 'Force deletion even with running components'
+    required: false
+    default: 'true'
+  delete-parameter-context:
+    description: 'Delete the parameter context associated with the process group'
+    required: false
+    default: 'true'
+
+  # configure-params command inputs
+  parameters:
+    description: 'JSON object of parameters to set, e.g. {"version": "2.0.0", "env": "prod"}'
+    required: false
+    default: ''
+
+outputs:
+  # ensure-registry outputs
+  registry-client-id:
+    description: 'ID of the created/updated registry client'
+    value: ${{ steps.run-command.outputs.registry_client_id }}
+  registry-client-name:
+    description: 'Name of the registry client'
+    value: ${{ steps.run-command.outputs.registry_client_name }}
+
+  # deploy-flow outputs
+  process-group-id:
+    description: 'ID of the deployed Process Group'
+    value: ${{ steps.run-command.outputs.process_group_id }}
+  process-group-name:
+    description: 'Name of the deployed Process Group'
+    value: ${{ steps.run-command.outputs.process_group_name }}
+  deployed-version:
+    description: 'Version (commit SHA) that was deployed'
+    value: ${{ steps.run-command.outputs.deployed_version }}
+
+  # start-flow outputs
+  started:
+    description: 'Whether the process group was started (true/partial)'
+    value: ${{ steps.run-command.outputs.started }}
+
+  # stop-flow outputs
+  stopped:
+    description: 'Whether the process group was stopped (true/partial)'
+    value: ${{ steps.run-command.outputs.stopped }}
+
+  # cleanup outputs
+  deleted:
+    description: 'Whether the process group was deleted'
+    value: ${{ steps.run-command.outputs.deleted }}
+  deleted-name:
+    description: 'Name of the deleted process group'
+    value: ${{ steps.run-command.outputs.deleted_name }}
+  message:
+    description: 'Status message from the command'
+    value: ${{ steps.run-command.outputs.message }}
+
+  # configure-params outputs
+  parameters-updated:
+    description: 'Comma-separated list of parameter names that were updated'
+    value: ${{ steps.run-command.outputs.parameters_updated }}
+  parameters-count:
+    description: 'Number of parameters updated'
+    value: ${{ steps.run-command.outputs.parameters_count }}
+  context-name:
+    description: 'Name of the parameter context'
+    value: ${{ steps.run-command.outputs.context_name }}
+
+  # get-status outputs - process group info
+  state:
+    description: 'Process group state (RUNNING, STOPPED, EMPTY)'
+    value: ${{ steps.run-command.outputs.state }}
+  total-processors:
+    description: 'Total number of processors'
+    value: ${{ steps.run-command.outputs.total_processors }}
+  running-processors:
+    description: 'Number of running processors'
+    value: ${{ steps.run-command.outputs.running_processors }}
+  stopped-processors:
+    description: 'Number of stopped processors'
+    value: ${{ steps.run-command.outputs.stopped_processors }}
+  invalid-processors:
+    description: 'Number of invalid processors'
+    value: ${{ steps.run-command.outputs.invalid_processors }}
+  disabled-processors:
+    description: 'Number of disabled processors'
+    value: ${{ steps.run-command.outputs.disabled_processors }}
+  queued-flowfiles:
+    description: 'Number of flowfiles queued'
+    value: ${{ steps.run-command.outputs.queued_flowfiles }}
+  queued-bytes:
+    description: 'Bytes queued'
+    value: ${{ steps.run-command.outputs.queued_bytes }}
+
+  # get-status outputs - controller services
+  total-controllers:
+    description: 'Total number of controller services'
+    value: ${{ steps.run-command.outputs.total_controllers }}
+  enabled-controllers:
+    description: 'Number of enabled controller services'
+    value: ${{ steps.run-command.outputs.enabled_controllers }}
+  disabled-controllers:
+    description: 'Number of disabled controller services'
+    value: ${{ steps.run-command.outputs.disabled_controllers }}
+  enabling-controllers:
+    description: 'Number of controller services currently enabling'
+    value: ${{ steps.run-command.outputs.enabling_controllers }}
+  disabling-controllers:
+    description: 'Number of controller services currently disabling'
+    value: ${{ steps.run-command.outputs.disabling_controllers }}
+
+  # get-status outputs - version control
+  versioned:
+    description: 'Whether the process group is under version control'
+    value: ${{ steps.run-command.outputs.versioned }}
+  version-id:
+    description: 'Current version ID (commit SHA)'
+    value: ${{ steps.run-command.outputs.version_id }}
+  flow-id:
+    description: 'Flow ID in registry'
+    value: ${{ steps.run-command.outputs.flow_id }}
+  flow-name:
+    description: 'Flow name in registry'
+    value: ${{ steps.run-command.outputs.flow_name }}
+  bucket-id:
+    description: 'Bucket ID in registry'
+    value: ${{ steps.run-command.outputs.bucket_id }}
+  bucket-name:
+    description: 'Bucket name in registry'
+    value: ${{ steps.run-command.outputs.bucket_name }}
+  registry-id:
+    description: 'Registry client ID'
+    value: ${{ steps.run-command.outputs.registry_id }}
+  registry-name:
+    description: 'Registry client name'
+    value: ${{ steps.run-command.outputs.registry_name }}
+  version-state:
+    description: 'Version state (UP_TO_DATE, LOCALLY_MODIFIED, etc.)'
+    value: ${{ steps.run-command.outputs.version_state }}
+  modified:
+    description: 'Whether the flow has local modifications'
+    value: ${{ steps.run-command.outputs.modified }}
+
+  # get-status outputs - parameter context
+  has-parameter-context:
+    description: 'Whether the process group has a parameter context'
+    value: ${{ steps.run-command.outputs.has_parameter_context }}
+  parameter-context-id:
+    description: 'ID of the parameter context'
+    value: ${{ steps.run-command.outputs.parameter_context_id }}
+  parameter-context-name:
+    description: 'Name of the parameter context'
+    value: ${{ steps.run-command.outputs.parameter_context_name }}
+  parameter-count:
+    description: 'Number of parameters in the context'
+    value: ${{ steps.run-command.outputs.parameter_count }}
+
+  # Generic outputs
+  success:
+    description: 'Whether the command succeeded'
+    value: ${{ steps.run-command.outputs.success }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install -r ${{ github.action_path }}/requirements.txt
+
+    - name: Run command
+      id: run-command
+      shell: bash
+      env:
+        # Action command
+        NIFI_ACTION_COMMAND: ${{ inputs.command }}
+        # NiFi connection (names match nipyapi ENV_VAR_MAPPINGS)
+        NIFI_API_ENDPOINT: ${{ inputs.nifi-api-endpoint }}
+        NIFI_USERNAME: ${{ inputs.nifi-username }}
+        NIFI_PASSWORD: ${{ inputs.nifi-password }}
+        NIFI_VERIFY_SSL: ${{ inputs.nifi-verify-ssl }}
+        NIPYAPI_SUPPRESS_SSL_WARNINGS: ${{ inputs.nipyapi-suppress-ssl-warnings }}
+        # Registry client config (GH_ prefix avoids GitHub reserved names)
+        # Note: PAT required - NiFi's GitHub Flow Registry Client doesn't work with GITHUB_TOKEN
+        GH_REGISTRY_TOKEN: ${{ inputs.github-registry-token }}
+        NIFI_REGISTRY_REPO: ${{ inputs.github-registry-repo || github.repository }}
+        NIFI_REGISTRY_BRANCH: ${{ inputs.github-registry-branch }}
+        NIFI_REGISTRY_CLIENT_NAME: ${{ inputs.registry-client-name }}
+        NIFI_REGISTRY_CLIENT_ID: ${{ inputs.registry-client-id }}
+        NIFI_REPOSITORY_PATH: ${{ inputs.repository-path }}
+        NIFI_REGISTRY_API_URL: ${{ inputs.github-api-url }}
+        # Flow deployment
+        NIFI_BUCKET: ${{ inputs.bucket }}
+        NIFI_FLOW: ${{ inputs.flow }}
+        NIFI_FLOW_BRANCH: ${{ inputs.branch }}
+        NIFI_FLOW_VERSION: ${{ inputs.version }}
+        NIFI_PARENT_PG_ID: ${{ inputs.parent-process-group-id }}
+        NIFI_LOCATION_X: ${{ inputs.location-x }}
+        NIFI_LOCATION_Y: ${{ inputs.location-y }}
+        # Process group operations
+        NIFI_PROCESS_GROUP_ID: ${{ inputs.process-group-id }}
+        NIFI_ENABLE_CONTROLLERS: ${{ inputs.enable-controllers }}
+        NIFI_DISABLE_CONTROLLERS: ${{ inputs.disable-controllers }}
+        NIFI_FORCE_DELETE: ${{ inputs.force-delete }}
+        NIFI_DELETE_PARAM_CONTEXT: ${{ inputs.delete-parameter-context }}
+        # Parameters
+        NIFI_PARAMETERS: ${{ inputs.parameters }}
+      run: python ${{ github.action_path }}/src/main.py
+
+branding:
+  icon: 'database'
+  color: 'blue'
