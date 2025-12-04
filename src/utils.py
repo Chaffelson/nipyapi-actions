@@ -91,5 +91,6 @@ def modify_processor(process_group_id):
         revision=proc.revision,
         component=nipyapi.nifi.ProcessorDTO(id=proc.component.id, name=new_name)
     )
-    nipyapi.nifi.ProcessorsApi().update_processor(proc.id, update_body)
+    # Note: API signature is update_processor(body, id) - body comes first!
+    nipyapi.nifi.ProcessorsApi().update_processor(body=update_body, id=proc.id)
     print(f"Renamed processor to '{new_name}'")
