@@ -19,7 +19,7 @@
         "comments" : "",
         "groupId" : "flow-contents-group",
         "id" : "53433f28-542e-316f-ab1a-a3071d661241",
-        "name" : "HandleHTTPResponse",
+        "name" : "HandleHTTPResponse-v2",
         "type" : "PROCESSOR"
       },
       "flowFileExpiration" : "0 sec",
@@ -118,7 +118,7 @@
       "groupIdentifier" : "flow-contents-group",
       "identifier" : "53433f28-542e-316f-ab1a-a3071d661241",
       "maxBackoffPeriod" : "10 mins",
-      "name" : "HandleHTTPResponse",
+      "name" : "HandleHTTPResponse-v2",
       "penaltyDuration" : "30 sec",
       "position" : {
         "x" : 400.0,
@@ -393,6 +393,6 @@
   "snapshotMetadata" : {
     "author" : "einstein",
     "flowIdentifier" : "cicd-demo-flow",
-    "timestamp" : 1764770348078
+    "timestamp" : 1764841667786
   }
 }
