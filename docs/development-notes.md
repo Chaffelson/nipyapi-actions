@@ -118,6 +118,7 @@ Key insights from development sessions that should guide future work:
 
 ### 5.2 Medium-term
 - [ ] Test with OIDC authentication against external NiFi cluster
+- [ ] Consider adding GitHub registry function tests to main nipyapi CI (requires GH_REGISTRY_TOKEN secret)
 - [ ] GitLab, Azure DevOps, Bitbucket provider testing
 - [ ] Environment-based workflow patterns
 - [ ] Approval gates for production deployments
