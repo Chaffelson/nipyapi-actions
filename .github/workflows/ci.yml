@@ -146,8 +146,10 @@ jobs:
             echo "WARNING: Expected 1.0.0, got $VERSION"
           fi
 
-      # Test: Configure Parameters
-      - name: Test configure-params
+      # Test: Configure Parameters (Secret Injection)
+      # This tests that dynamic values (like secrets) are correctly injected into parameters.
+      # We use github.run_id as a predictable "secret" that we can verify was correctly set.
+      - name: Test configure-params (secret injection)
         uses: ./
         id: params
         with:
@@ -157,26 +159,32 @@ jobs:
           nifi-password: password1234
           nifi-verify-ssl: 'false'
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-          parameters: '{"version": "2.0.0"}'
+          parameters: '{"version": "${{ github.run_id }}"}'
 
       - name: Verify parameters updated
         run: |
           echo "Parameters Updated: ${{ steps.params.outputs.parameters-updated }}"
+          echo "Injected Value: ${{ github.run_id }}"
           echo "Success: ${{ steps.params.outputs.success }}"
 
-      # Test: HTTP Endpoint (updated version)
-      - name: Test HTTP endpoint (updated version)
+      # Test: HTTP Endpoint (verify secret injection)
+      # Verifies the injected value (github.run_id) is returned by the flow
+      - name: Test HTTP endpoint (verify secret injection)
+        env:
+          EXPECTED_VALUE: ${{ github.run_id }}
         run: |
-          echo "Testing HTTP endpoint after parameter update..."
+          echo "Testing HTTP endpoint after parameter injection..."
+          echo "Expected value: $EXPECTED_VALUE"
           sleep 2
           HTTP_RESPONSE=$(curl -s -i http://localhost:8080/version 2>/dev/null || echo "FAILED")
           echo "$HTTP_RESPONSE"
           VERSION=$(echo "$HTTP_RESPONSE" | grep -i "^version:" | cut -d' ' -f2 | tr -d '\r')
           echo "Version header: [$VERSION]"
-          if [ "$VERSION" = "2.0.0" ]; then
-            echo "SUCCESS: Version updated to 2.0.0"
+          if [ "$VERSION" = "$EXPECTED_VALUE" ]; then
+            echo "SUCCESS: Secret injection verified - value correctly passed through"
           else
-            echo "WARNING: Expected 2.0.0, got $VERSION"
+            echo "ERROR: Expected $EXPECTED_VALUE, got $VERSION"
+            exit 1
           fi
 
       # Test: Stop Flow

@@ -467,13 +467,20 @@ def test_full_workflow():
         if not test_http_endpoint(expected_version="1.0.0"):
             print("WARNING: HTTP endpoint test failed, continuing...")
 
-        # Step 6: configure-params - change version to 2.0.0
-        # NiFi handles parameter context updates while the flow is running
-        test_configure_params(github_token, output_file, process_group_id, '{"version": "2.0.0"}')
+        # Step 6: configure-params - test secret injection with dynamic value
+        # Uses a unique value (timestamp-based) to verify injection works correctly.
+        # This simulates how GitHub secrets would be injected in CI.
+        import datetime
+        injected_value = f"local-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+        print(f"Testing secret injection with value: {injected_value}")
+        test_configure_params(
+            github_token, output_file, process_group_id,
+            f'{{"version": "{injected_value}"}}'
+        )
 
-        # Step 7: test HTTP endpoint with new version (2.0.0)
-        if not test_http_endpoint(expected_version="2.0.0"):
-            print("WARNING: HTTP endpoint test with updated version failed, continuing...")
+        # Step 7: test HTTP endpoint with injected value
+        if not test_http_endpoint(expected_version=injected_value):
+            print("WARNING: HTTP endpoint test with injected value failed, continuing...")
 
         # Step 8: stop-flow
         test_stop_flow(github_token, output_file, process_group_id)
