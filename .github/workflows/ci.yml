@@ -199,6 +199,7 @@ jobs:
           nifi-verify-ssl: 'false'
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
           target-version: 'v1.0.0'
+          github-registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
 
       - name: Verify version changed
         run: |
@@ -223,6 +224,7 @@ jobs:
           nifi-password: password1234
           nifi-verify-ssl: 'false'
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+          github-registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
           # No target-version means latest
 
       - name: Verify changed to latest
