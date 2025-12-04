@@ -521,8 +521,13 @@ def test_full_workflow():
             pass
 
 
-def test_single_command(command):
-    """Test a single command."""
+def test_single_command(command, skip_cleanup=False):
+    """Test a single command.
+
+    Args:
+        command: The command to test
+        skip_cleanup: If True, don't clean up resources after test (useful for debugging)
+    """
     github_token = os.environ.get('GITHUB_REGISTRY_TOKEN')
     if not github_token:
         print("ERROR: GITHUB_REGISTRY_TOKEN environment variable not set")
@@ -533,11 +538,29 @@ def test_single_command(command):
 
     try:
         if command == 'ensure-registry':
-            test_ensure_registry(github_token, output_file, cleanup=True)
+            outputs = test_ensure_registry(github_token, output_file, cleanup=not skip_cleanup)
+            if skip_cleanup:
+                print(f"\n--no-cleanup: Registry client kept: {outputs['registry_client_id']}")
         elif command == 'deploy-flow':
             # Need registry client first
             registry_outputs = test_ensure_registry(github_token, output_file, cleanup=False)
-            test_deploy_flow(github_token, output_file, registry_outputs['registry_client_id'])
+            deploy_outputs = test_deploy_flow(
+                github_token, output_file, registry_outputs['registry_client_id']
+            )
+            if skip_cleanup:
+                print(f"\n--no-cleanup: Resources kept:")
+                print(f"  Registry Client ID: {registry_outputs['registry_client_id']}")
+                print(f"  Process Group ID: {deploy_outputs['process_group_id']}")
+            else:
+                # Clean up registry client
+                try:
+                    import nipyapi
+                    client = nipyapi.versioning.get_registry_client('test-action-client')
+                    if client:
+                        nipyapi.versioning.delete_registry_client(client)
+                        print("Cleaned up test registry client")
+                except Exception:
+                    pass
         elif command == 'cleanup':
             print("cleanup requires a process-group-id, use full-workflow test instead")
             sys.exit(1)
@@ -549,13 +572,42 @@ def test_single_command(command):
             os.unlink(output_file)
 
 
+def print_usage():
+    """Print usage information."""
+    print("Usage: python tests/local.py [command] [options]")
+    print()
+    print("Commands:")
+    print("  ensure-registry    Set up a GitHub registry client")
+    print("  deploy-flow        Deploy a flow (sets up registry client first)")
+    print("  full-workflow      Run the complete test workflow")
+    print()
+    print("Options:")
+    print("  --no-cleanup       Don't clean up resources after test (for debugging)")
+    print()
+    print("Examples:")
+    print("  python tests/local.py ensure-registry --no-cleanup")
+    print("  python tests/local.py deploy-flow --no-cleanup")
+    print("  python tests/local.py full-workflow")
+
+
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        cmd = sys.argv[1]
-        if cmd == 'full-workflow':
-            test_full_workflow()
-        else:
-            test_single_command(cmd)
+    # Parse arguments
+    args = sys.argv[1:]
+    skip_cleanup = '--no-cleanup' in args
+    if skip_cleanup:
+        args.remove('--no-cleanup')
+
+    if not args:
+        print_usage()
+        sys.exit(0)
+
+    cmd = args[0]
+
+    if cmd == 'full-workflow':
+        if skip_cleanup:
+            print("WARNING: --no-cleanup not supported for full-workflow")
+        test_full_workflow()
+    elif cmd in ('--help', '-h', 'help'):
+        print_usage()
     else:
-        # Default: run ensure-registry test only
-        test_single_command('ensure-registry')
+        test_single_command(cmd, skip_cleanup=skip_cleanup)

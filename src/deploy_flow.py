@@ -9,6 +9,8 @@ Uses nipyapi's built-in Git registry functions.
 import nipyapi
 from nipyapi.utils import getenv
 
+from utils import resolve_version_ref
+
 
 def run_deploy_flow(set_output):
     """
@@ -32,9 +34,13 @@ def run_deploy_flow(set_output):
     # Optional inputs (convert empty strings to None for proper defaults)
     parent_id = getenv('NIFI_PARENT_PG_ID') or None
     branch = getenv('NIFI_FLOW_BRANCH') or None  # None = use registry client default
-    version = getenv('NIFI_FLOW_VERSION') or None  # None = latest
+    version_input = getenv('NIFI_FLOW_VERSION') or None  # None = latest
     location_x = getenv('NIFI_LOCATION_X')
     location_y = getenv('NIFI_LOCATION_Y')
+
+    # Resolve version ref (tag/branch/SHA) to commit SHA
+    # This allows users to specify tags like "v1.0.0" instead of full SHAs
+    version = resolve_version_ref(version_input)
 
     # Default to root process group if not specified
     if not parent_id:
@@ -51,8 +57,11 @@ def run_deploy_flow(set_output):
     print(f"Deploying flow '{flow}' from bucket '{bucket}'")
     if branch:
         print(f"  Branch: {branch}")
-    if version:
-        print(f"  Version: {version}")
+    if version_input:
+        if version != version_input:
+            print(f"  Version: {version_input} (resolved to {version[:12]}...)")
+        else:
+            print(f"  Version: {version}")
     else:
         print("  Version: latest")
 

@@ -5,7 +5,7 @@ author: 'Chaffelson'
 inputs:
   # Command selection
   command:
-    description: 'Command to execute: ensure-registry, deploy-flow, start-flow, stop-flow, cleanup, configure-params, get-status'
+    description: 'Command to execute: ensure-registry, deploy-flow, start-flow, stop-flow, cleanup, configure-params, get-status, change-version, revert-flow'
     required: true
 
   # NiFi Connection - names match nipyapi ENV_VAR_MAPPINGS
@@ -118,6 +118,12 @@ inputs:
   # configure-params command inputs
   parameters:
     description: 'JSON object of parameters to set, e.g. {"version": "2.0.0", "env": "prod"}'
+    required: false
+    default: ''
+
+  # change-version command inputs
+  target-version:
+    description: 'Version (commit SHA or tag) to change to. If not specified, changes to latest version.'
     required: false
     default: ''
 
@@ -262,6 +268,19 @@ outputs:
     description: 'Number of parameters in the context'
     value: ${{ steps.run-command.outputs.parameter_count }}
 
+  # change-version outputs
+  previous-version:
+    description: 'Version before the change'
+    value: ${{ steps.run-command.outputs.previous_version }}
+  new-version:
+    description: 'Version after the change'
+    value: ${{ steps.run-command.outputs.new_version }}
+
+  # revert-flow outputs
+  reverted:
+    description: 'Whether changes were reverted (false if already up to date)'
+    value: ${{ steps.run-command.outputs.reverted }}
+
   # Generic outputs
   success:
     description: 'Whether the command succeeded'
@@ -316,6 +335,8 @@ runs:
         NIFI_DELETE_PARAM_CONTEXT: ${{ inputs.delete-parameter-context }}
         # Parameters
         NIFI_PARAMETERS: ${{ inputs.parameters }}
+        # Change version
+        NIFI_TARGET_VERSION: ${{ inputs.target-version }}
       run: python ${{ github.action_path }}/src/main.py
 
 branding:

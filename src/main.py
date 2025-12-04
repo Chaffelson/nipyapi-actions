@@ -6,12 +6,14 @@ Routes commands to their respective handlers.
 Uses nipyapi.profiles.switch('env') to configure the connection from environment variables.
 """
 
-import os
 import sys
 
 import nipyapi
 from nipyapi import profiles
 from nipyapi.utils import getenv
+
+# Shared utilities
+from utils import set_output
 
 # Command handlers
 from ensure_registry import run_ensure_registry
@@ -21,6 +23,8 @@ from stop_flow import run_stop_flow
 from cleanup import run_cleanup
 from configure_params import run_configure_params
 from get_status import run_get_status
+from change_version import run_change_version
+from revert_flow import run_revert_flow
 
 
 # Required inputs per command
@@ -32,6 +36,8 @@ COMMAND_REQUIREMENTS = {
     'cleanup': ['NIFI_PROCESS_GROUP_ID'],
     'configure-params': ['NIFI_PROCESS_GROUP_ID', 'NIFI_PARAMETERS'],
     'get-status': ['NIFI_PROCESS_GROUP_ID'],
+    'change-version': ['NIFI_PROCESS_GROUP_ID'],
+    'revert-flow': ['NIFI_PROCESS_GROUP_ID'],
 }
 
 # Command handlers
@@ -43,18 +49,9 @@ COMMAND_HANDLERS = {
     'cleanup': run_cleanup,
     'configure-params': run_configure_params,
     'get-status': run_get_status,
+    'change-version': run_change_version,
+    'revert-flow': run_revert_flow,
 }
-
-
-def set_output(name, value):
-    """Set an output for GitHub Actions."""
-    output_file = os.environ.get('GITHUB_OUTPUT')
-    if output_file:
-        with open(output_file, 'a') as f:
-            f.write(f"{name}={value}\n")
-    else:
-        # For local testing, just print
-        print(f"OUTPUT: {name}={value}")
 
 
 def configure_nifi_connection():

@@ -187,6 +187,117 @@ jobs:
             exit 1
           fi
 
+      # Test: Change Version (to older version v1.0.0)
+      - name: Test change-version (to v1.0.0)
+        uses: ./
+        id: change-version
+        with:
+          command: change-version
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+          target-version: 'v1.0.0'
+
+      - name: Verify version changed
+        run: |
+          echo "Previous Version: ${{ steps.change-version.outputs.previous-version }}"
+          echo "New Version: ${{ steps.change-version.outputs.new-version }}"
+          # v1.0.0 tag resolves to this SHA
+          if [[ "${{ steps.change-version.outputs.new-version }}" == "97549b88f2e1fb1dccddef57335e94628c74060b" ]]; then
+            echo "SUCCESS: Version changed to v1.0.0"
+          else
+            echo "ERROR: Expected v1.0.0 SHA, got ${{ steps.change-version.outputs.new-version }}"
+            exit 1
+          fi
+
+      # Test: Change Version (back to latest)
+      - name: Test change-version (to latest)
+        uses: ./
+        id: change-latest
+        with:
+          command: change-version
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+          # No target-version means latest
+
+      - name: Verify changed to latest
+        run: |
+          echo "Previous Version: ${{ steps.change-latest.outputs.previous-version }}"
+          echo "New Version: ${{ steps.change-latest.outputs.new-version }}"
+          # Verify previous was v1.0.0 and new is different (i.e., latest)
+          if [[ "${{ steps.change-latest.outputs.previous-version }}" != "97549b88f2e1fb1dccddef57335e94628c74060b" ]]; then
+            echo "ERROR: Previous version should be v1.0.0 SHA"
+            exit 1
+          fi
+          if [[ "${{ steps.change-latest.outputs.new-version }}" == "${{ steps.change-latest.outputs.previous-version }}" ]]; then
+            echo "ERROR: Version did not change"
+            exit 1
+          fi
+          echo "SUCCESS: Changed from v1.0.0 to latest (${{ steps.change-latest.outputs.new-version }})"
+
+      # Test: Revert Flow (after making structural modification)
+      # Parameter changes don't trigger LOCALLY_MODIFIED - must make structural change
+      - name: Create structural modification for revert test
+        env:
+          NIFI_API_ENDPOINT: https://localhost:9447/nifi-api
+          NIFI_USERNAME: einstein
+          NIFI_PASSWORD: password1234
+          NIFI_VERIFY_SSL: 'false'
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'src')
+          from nipyapi import profiles; profiles.switch('env')
+          from utils import modify_processor
+          modify_processor('${{ steps.deploy.outputs.process-group-id }}')
+          "
+
+      - name: Verify LOCALLY_MODIFIED state via get-status
+        uses: ./
+        id: status-modified
+        with:
+          command: get-status
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Check state is LOCALLY_MODIFIED
+        run: |
+          echo "Version state: ${{ steps.status-modified.outputs.version-state }}"
+          if [ "${{ steps.status-modified.outputs.version-state }}" != "LOCALLY_MODIFIED" ]; then
+            echo "ERROR: Expected LOCALLY_MODIFIED, got ${{ steps.status-modified.outputs.version-state }}"
+            exit 1
+          fi
+          echo "SUCCESS: Flow is LOCALLY_MODIFIED"
+
+      - name: Test revert-flow
+        uses: ./
+        id: revert
+        with:
+          command: revert-flow
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify revert
+        run: |
+          echo "Reverted: ${{ steps.revert.outputs.reverted }}"
+          echo "State: ${{ steps.revert.outputs.state }}"
+          if [ "${{ steps.revert.outputs.state }}" = "UP_TO_DATE" ]; then
+            echo "SUCCESS: Flow reverted to UP_TO_DATE state"
+          else
+            echo "ERROR: Expected UP_TO_DATE state, got ${{ steps.revert.outputs.state }}"
+            exit 1
+          fi
+
       # Test: Stop Flow
       - name: Test stop-flow
         uses: ./

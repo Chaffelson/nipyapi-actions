@@ -247,6 +247,120 @@ Stops all processors and optionally disables controller services in a Process Gr
 
 ---
 
+## change-version
+
+Change a deployed flow to a different version.
+
+### Description
+
+Changes the version of an already-deployed Process Group to a specified version (tag or commit SHA). This is useful for:
+- Rolling back to a previous version
+- Deploying a specific tagged release
+- Upgrading to a newer version
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `process-group-id` | Yes | | Process Group ID to change |
+| `target-version` | No | _latest_ | Version to change to (tag like `v1.0.0` or commit SHA) |
+| `branch` | No | _current_ | Branch to use when resolving versions |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `previous-version` | Version before the change |
+| `new-version` | Version after the change |
+| `version-state` | New version state (`UP_TO_DATE` or `STALE`) |
+| `success` | `true` if successful |
+
+### Example
+
+```yaml
+# Change to a specific tagged version
+- uses: Chaffelson/nipyapi-actions@main
+  with:
+    command: change-version
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-username: ${{ secrets.NIFI_USERNAME }}
+    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+    target-version: v1.0.0
+
+# Change to latest version (omit target-version)
+- uses: Chaffelson/nipyapi-actions@main
+  with:
+    command: change-version
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-username: ${{ secrets.NIFI_USERNAME }}
+    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+### Notes
+
+- The flow will be stopped temporarily during the version change
+- If the flow has local modifications, you must use `revert-flow` first
+- When changing to an older version, the state will be `STALE` (indicating newer versions exist)
+
+---
+
+## revert-flow
+
+Revert local modifications to a deployed flow.
+
+### Description
+
+Reverts any local (uncommitted) changes made to a deployed Process Group, restoring it to match the version currently tracked in the registry. This is useful when:
+- Test modifications need to be discarded
+- The flow needs to be reset to a known state before version change
+- Local changes were made accidentally
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `process-group-id` | Yes | | Process Group ID to revert |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `reverted` | `true` if changes were reverted, `false` if already up to date |
+| `version` | Current version after revert |
+| `state` | Version state after revert (should be `UP_TO_DATE`) |
+| `success` | `true` if successful |
+
+### Example
+
+```yaml
+- uses: Chaffelson/nipyapi-actions@main
+  id: revert
+  with:
+    command: revert-flow
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-username: ${{ secrets.NIFI_USERNAME }}
+    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+- name: Check revert result
+  run: |
+    if [ "${{ steps.revert.outputs.reverted }}" = "true" ]; then
+      echo "Local changes were reverted"
+    else
+      echo "Flow was already up to date"
+    fi
+```
+
+### Notes
+
+- If the flow has no local modifications (`UP_TO_DATE` state), this is a no-op
+- Does not change the tracked version, only discards local modifications
+- Use `change-version` to switch to a different version
+
+---
+
 ## cleanup
 
 Delete a Process Group and its associated resources.

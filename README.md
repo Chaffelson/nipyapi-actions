@@ -29,6 +29,8 @@ A single action with multiple commands for the full CI/CD lifecycle:
 | `deploy-flow` | Deploy a versioned flow from GitHub to NiFi |
 | `start-flow` | Start a deployed Process Group |
 | `stop-flow` | Stop a running Process Group |
+| `change-version` | Change a deployed flow to a different version (tag or SHA) |
+| `revert-flow` | Revert local modifications to match the registry version |
 | `cleanup` | Delete a Process Group and associated resources |
 | `configure-params` | Set parameter values on a parameter context |
 | `get-status` | Get comprehensive status of a Process Group |
