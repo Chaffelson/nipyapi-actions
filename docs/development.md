@@ -40,7 +40,7 @@ source ../nipyapi/.venv/bin/activate  # On Windows: ..\nipyapi\.venv\Scripts\act
 
 No additional dependencies are required - nipyapi is already installed from your main client setup. The `requirements.txt` in this repository is only used by the GitHub Action when running in CI.
 
-The `GITHUB_REGISTRY_TOKEN` should already be configured in `../nipyapi/.env` as part of the main client setup - it's required for the nipyapi CI tests that use GitHub registry functions.
+The `GH_REGISTRY_TOKEN` should already be configured in `../nipyapi/.env` as part of the main client setup - it's required for the nipyapi CI tests that use GitHub registry functions.
 
 ### 4. Start NiFi Infrastructure
 
@@ -113,7 +113,7 @@ Tests the Python command logic directly without GitHub Actions overhead.
 
 **Prerequisites:**
 - NiFi infrastructure running
-- `GITHUB_REGISTRY_TOKEN` environment variable set
+- `GH_REGISTRY_TOKEN` environment variable set
 - Python environment with dependencies
 
 **When to use:**

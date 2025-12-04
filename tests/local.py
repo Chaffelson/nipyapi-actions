@@ -11,7 +11,7 @@ The action uses direct environment variable names (no INPUT_ prefix):
 
 Usage:
     # Set required environment variable first:
-    export GITHUB_REGISTRY_TOKEN="your-token"
+    export GH_REGISTRY_TOKEN="your-token"
 
     # Then run from repo root:
     python tests/local.py [command]
@@ -436,9 +436,9 @@ def test_full_workflow():
     print("*" * 60)
 
     # Check for required environment variable
-    github_token = os.environ.get('GITHUB_REGISTRY_TOKEN')
+    github_token = os.environ.get('GH_REGISTRY_TOKEN')
     if not github_token:
-        print("ERROR: GITHUB_REGISTRY_TOKEN environment variable not set")
+        print("ERROR: GH_REGISTRY_TOKEN environment variable not set")
         print("Please set it with a valid GitHub PAT")
         sys.exit(1)
 
@@ -528,9 +528,9 @@ def test_single_command(command, skip_cleanup=False):
         command: The command to test
         skip_cleanup: If True, don't clean up resources after test (useful for debugging)
     """
-    github_token = os.environ.get('GITHUB_REGISTRY_TOKEN')
+    github_token = os.environ.get('GH_REGISTRY_TOKEN')
     if not github_token:
-        print("ERROR: GITHUB_REGISTRY_TOKEN environment variable not set")
+        print("ERROR: GH_REGISTRY_TOKEN environment variable not set")
         sys.exit(1)
 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:

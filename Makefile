@@ -17,7 +17,7 @@ NIPYAPI_INFRA ?= ../nipyapi
 NIPYAPI_ENV_FILE := $(NIPYAPI_INFRA)/.env
 
 # Load environment from nipyapi repo if available
-# This provides GITHUB_REGISTRY_TOKEN
+# This provides GH_REGISTRY_TOKEN
 ifneq (,$(wildcard $(NIPYAPI_ENV_FILE)))
     include $(NIPYAPI_ENV_FILE)
     export
@@ -64,7 +64,7 @@ help:
 	@echo "Configuration:"
 	@echo "  NIPYAPI_INFRA          - Path to nipyapi repo (default: ../nipyapi)"
 	@echo "  PYTHON                 - Python interpreter (default: python)"
-	@echo "  GITHUB_REGISTRY_TOKEN  - Required (set in env or nipyapi/.env)"
+	@echo "  GH_REGISTRY_TOKEN      - Required (set in env or nipyapi/.env)"
 	@echo ""
 
 # ============================================================================
@@ -143,8 +143,8 @@ infra-ready:
 # ============================================================================
 
 check-env:
-ifndef GITHUB_REGISTRY_TOKEN
-	@echo "ERROR: GITHUB_REGISTRY_TOKEN is not set"
+ifndef GH_REGISTRY_TOKEN
+	@echo "ERROR: GH_REGISTRY_TOKEN is not set"
 	@echo "Set in environment or in $(NIPYAPI_ENV_FILE)"
 	@exit 1
 endif

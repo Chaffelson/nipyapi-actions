@@ -53,7 +53,7 @@ def extract_compose_credentials(nipyapi_path):
 def get_github_token():
     """Get GitHub registry token from environment or .env file."""
     # Check environment first
-    token = os.environ.get('GITHUB_REGISTRY_TOKEN')
+    token = os.environ.get('GH_REGISTRY_TOKEN')
     if token:
         return token
 
@@ -62,10 +62,10 @@ def get_github_token():
     env_file = nipyapi_path / '.env'
     if env_file.exists():
         for line in env_file.read_text().splitlines():
-            if line.startswith('GITHUB_REGISTRY_TOKEN='):
+            if line.startswith('GH_REGISTRY_TOKEN='):
                 return line.split('=', 1)[1].strip()
 
-    print("ERROR: GITHUB_REGISTRY_TOKEN not found in environment or nipyapi/.env", file=sys.stderr)
+    print("ERROR: GH_REGISTRY_TOKEN not found in environment or nipyapi/.env", file=sys.stderr)
     sys.exit(1)
 
 
