@@ -84,13 +84,29 @@ def modify_processor(process_group_id):
     import nipyapi
 
     proc = nipyapi.canvas.list_all_processors(process_group_id)[0]
+    was_running = proc.component.state == 'RUNNING'
+
+    # Stop processor if running (can't rename while running)
+    if was_running:
+        print(f"Stopping processor '{proc.component.name}'...")
+        nipyapi.canvas.schedule_processor(proc, scheduled=False, refresh=True)
+        # Refresh to get updated revision
+        proc = nipyapi.canvas.get_processor(proc.id, 'id')
+
     new_name = proc.component.name + '_MODIFIED'
+    print(f"Renaming processor to '{new_name}'...")
 
     update_body = nipyapi.nifi.ProcessorEntity(
         id=proc.id,
         revision=proc.revision,
         component=nipyapi.nifi.ProcessorDTO(id=proc.component.id, name=new_name)
     )
-    # Note: API signature is update_processor(body, id) - body comes first!
     nipyapi.nifi.ProcessorsApi().update_processor(body=update_body, id=proc.id)
-    print(f"Renamed processor to '{new_name}'")
+
+    # Restart if it was running
+    if was_running:
+        proc = nipyapi.canvas.get_processor(proc.id, 'id')
+        nipyapi.canvas.schedule_processor(proc, scheduled=True, refresh=True)
+        print(f"Restarted processor '{new_name}'")
+
+    print(f"Successfully renamed processor to '{new_name}'")
