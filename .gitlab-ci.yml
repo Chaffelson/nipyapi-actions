@@ -1,0 +1,277 @@
+# GitLab CI/CD for NiPyAPI Actions
+#
+# This pipeline tests NiFi flow operations using Docker-in-Docker.
+# For local testing, set LOCAL_TEST=true to skip DinD infrastructure setup.
+#
+# Required CI/CD Variables (Settings > CI/CD > Variables):
+#   GH_REGISTRY_TOKEN - GitHub PAT for registry client (masked, NOT protected)
+#   OR
+#   GL_REGISTRY_TOKEN - GitLab PAT for registry client (masked, NOT protected)
+#                       Scopes: api, read_repository, write_repository; Role: Developer
+#
+# Local testing: make gitlab-test-all
+
+stages:
+  - setup
+  - test
+
+# =============================================================================
+# Global Variables
+# =============================================================================
+variables:
+  # NiFi connection (can be overridden per-job or via CI variables)
+  NIFI_USERNAME: einstein
+  NIFI_PASSWORD: password1234
+  NIFI_VERIFY_SSL: "false"
+
+  # Registry settings - using GitLab as flow source
+  NIFI_REGISTRY_PROVIDER: "gitlab"
+  NIFI_REGISTRY_CLIENT_NAME: "GitLab-FlowRegistry"
+  NIFI_REGISTRY_REPO: nipyapi/nipyapi-actions
+  NIFI_REPOSITORY_PATH: "tests"
+
+  # Flow defaults
+  NIFI_BUCKET: flows
+  NIFI_FLOW: cicd-demo-flow
+
+  # Infrastructure branch
+  NIPYAPI_BRANCH: feature/github-cicd-versioning
+
+# =============================================================================
+# Include templates and fragments
+# =============================================================================
+include:
+  - local: 'templates/fragments.yml'
+
+# =============================================================================
+# Setup Stage - Verify CLI installation
+# =============================================================================
+test-setup:
+  stage: setup
+  image: python:3.11
+  before_script:
+    - !reference [.nipyapi, setup]
+  script:
+    - nipyapi --help | head -5
+    - python -c "import nipyapi; print(f'nipyapi {nipyapi.__version__}')"
+    - echo "CLI installed successfully"
+
+# =============================================================================
+# Test Stage - Full Integration Test with NiFi
+# =============================================================================
+test-nifi-operations:
+  stage: test
+  image: docker:24
+  services:
+    - name: docker:24-dind
+      variables:
+        DOCKER_TLS_CERTDIR: ""
+  variables:
+    # Docker-in-Docker (non-TLS for simplicity)
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    # NiFi endpoint - uses nifi-github hostname which maps to DinD IP via /etc/hosts
+    # The hostname must match a SAN in the NiFi certificate
+    NIFI_API_ENDPOINT: "https://nifi-github:9447/nifi-api"
+    NIFI_HTTPS_PORT: "9447"
+    NIFI_HTTP_PORT: "8080"
+  before_script:
+    - |
+      if [ "$LOCAL_TEST" != "true" ]; then
+        apk add --no-cache bash make git curl python3 py3-pip
+      fi
+      pip install --break-system-packages -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+  script:
+    - |
+      set -e
+
+      echo "============================================"
+      echo "CONFIGURATION"
+      echo "============================================"
+      echo "Pipeline:        ${CI_PIPELINE_ID:-local}"
+      echo "Branch:          ${CI_COMMIT_REF_NAME:-local}"
+      echo "NiFi Endpoint:   ${NIFI_API_ENDPOINT}"
+      echo "NiFi Username:   ${NIFI_USERNAME}"
+      echo "Registry Provider: ${NIFI_REGISTRY_PROVIDER:-auto-detect}"
+      echo "Registry Repo:   ${NIFI_REGISTRY_REPO}"
+      echo "Registry Client: ${NIFI_REGISTRY_CLIENT_NAME}"
+      echo "Bucket:          ${NIFI_BUCKET}"
+      echo "Flow:            ${NIFI_FLOW}"
+      echo "Infra Branch:    ${NIPYAPI_BRANCH}"
+      echo "Local Test:      ${LOCAL_TEST:-false}"
+      echo "GH Token:        ${GH_REGISTRY_TOKEN:+[SET]}"
+      echo "GL Token:        ${GL_REGISTRY_TOKEN:+[SET]}"
+      echo "============================================"
+
+      # Verify registry token is set based on provider
+      if [ "$NIFI_REGISTRY_PROVIDER" = "gitlab" ]; then
+        if [ -z "$GL_REGISTRY_TOKEN" ]; then
+          echo "ERROR: GL_REGISTRY_TOKEN is required when using GitLab provider"
+          echo "Set it in GitLab: Settings > CI/CD > Variables"
+          echo "Make sure 'Protect variable' is unchecked for feature branches"
+          exit 1
+        fi
+        echo "Using GitLab Flow Registry with GL_REGISTRY_TOKEN"
+      elif [ -z "$GH_REGISTRY_TOKEN" ] && [ -z "$GL_REGISTRY_TOKEN" ]; then
+        echo "ERROR: No registry token set"
+        echo "Set GH_REGISTRY_TOKEN or GL_REGISTRY_TOKEN in GitLab: Settings > CI/CD > Variables"
+        exit 1
+      else
+        echo "Using GitHub Flow Registry with GH_REGISTRY_TOKEN"
+      fi
+
+      # Extract hostname from NIFI_API_ENDPOINT for use in /etc/hosts and HTTP tests
+      NIFI_HOST=$(echo "$NIFI_API_ENDPOINT" | sed -E 's|https?://([^:/]+).*|\1|')
+      export NIFI_FLOW_HOST="$NIFI_HOST"
+      echo "Derived Host:    ${NIFI_HOST}"
+
+      # Setup infrastructure based on environment
+      if [ "$LOCAL_TEST" = "true" ]; then
+        echo "=== LOCAL: Using existing NiFi at $NIFI_API_ENDPOINT ==="
+      else
+        echo "=== GITLAB REMOTE: Setting up DinD infrastructure ==="
+
+        # Map NiFi hostname to DinD service IP (hostname must match certificate SAN)
+        DOCKER_IP=$(getent ahostsv4 docker | head -1 | awk '{print $1}')
+        if [ -z "$DOCKER_IP" ]; then
+          echo "ERROR: Could not resolve IPv4 address for 'docker'"
+          exit 1
+        fi
+        echo "$DOCKER_IP $NIFI_HOST" >> /etc/hosts
+        echo "Added /etc/hosts entry: $DOCKER_IP $NIFI_HOST"
+
+        # Clone nipyapi repo for infrastructure
+        git clone --depth 1 --branch ${NIPYAPI_BRANCH} https://github.com/Chaffelson/nipyapi.git nipyapi-infra
+        cd nipyapi-infra
+
+        # Generate certificates and start NiFi
+        make certs
+        export NIFI_WEB_PROXY_HOST="localhost:${NIFI_HTTPS_PORT},${NIFI_HOST}:${NIFI_HTTPS_PORT}"
+        make up NIPYAPI_PROFILE=github-cicd
+        cd ..
+
+        # Wait for NiFi to be ready (check /flow/about, accept 200/401/403 as ready)
+        echo "Waiting for NiFi at: $NIFI_API_ENDPOINT"
+        docker ps
+        NIFI_READY=false
+        for i in $(seq 1 60); do
+          HTTP_CODE=$(curl -ks -o /dev/null -w "%{http_code}" "${NIFI_API_ENDPOINT}/flow/about" || echo "000")
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+            echo "NiFi is ready (HTTP $HTTP_CODE)"
+            NIFI_READY=true
+            break
+          fi
+          echo "Attempt $i/60 - HTTP $HTTP_CODE, waiting 5s..."
+          sleep 5
+        done
+
+        if [ "$NIFI_READY" != "true" ]; then
+          echo "ERROR: NiFi did not become ready after 5 minutes"
+          docker logs nifi-github 2>&1 | tail -30 || true
+          exit 1
+        fi
+      fi
+
+      # Run integration tests using CLI directly
+      # These are the SAME commands that fragments.yml provides to users
+      echo ""
+      echo "============================================"
+      echo "RUNNING INTEGRATION TESTS (CLI)"
+      echo "============================================"
+
+      # Test: ensure-registry
+      echo "--- ensure-registry ---"
+      nipyapi ci ensure_registry | tee outputs.env
+      export $(grep -v '^#' outputs.env | xargs)
+      echo "Registry Client ID: $REGISTRY_CLIENT_ID"
+
+      # Test: deploy-flow
+      echo "--- deploy-flow ---"
+      export NIFI_REGISTRY_CLIENT_ID=$REGISTRY_CLIENT_ID
+      nipyapi ci deploy_flow | tee -a outputs.env
+      export $(grep -v '^#' outputs.env | xargs)
+      echo "Process Group ID: $PROCESS_GROUP_ID"
+
+      # Test: start-flow
+      echo "--- start-flow ---"
+      export NIFI_PROCESS_GROUP_ID=$PROCESS_GROUP_ID
+      nipyapi ci start_flow | tee -a outputs.env
+
+      # Test: get-status
+      echo "--- get-status ---"
+      nipyapi ci get_status | tee -a outputs.env
+
+      # Test: configure-params
+      echo "--- configure-params ---"
+      export NIFI_PARAMETERS='{"version": "test-'$(date +%s)'"}'
+      nipyapi ci configure_params | tee -a outputs.env
+
+      # Test: change-version (to v1.0.0)
+      echo "--- change-version (v1.0.0) ---"
+      export NIFI_TARGET_VERSION="v1.0.0"
+      nipyapi ci change_version | tee -a outputs.env
+      export $(grep -v '^#' outputs.env | xargs)
+      if [ "$NEW_VERSION" = "97549b88f2e1fb1dccddef57335e94628c74060b" ]; then
+        echo "SUCCESS: Version changed to v1.0.0"
+      else
+        echo "INFO: Version is $NEW_VERSION"
+      fi
+
+      # Test: change-version (to latest)
+      echo "--- change-version (latest) ---"
+      unset NIFI_TARGET_VERSION
+      nipyapi ci change_version | tee -a outputs.env
+
+      # Test: modify-processor (create LOCALLY_MODIFIED state for revert test)
+      # Uses inline Python since this is test scaffolding, not a real CI operation
+      echo "--- modify-processor (inline Python) ---"
+      python -c "
+      import nipyapi
+      nipyapi.profiles.switch('env')
+      processors = nipyapi.canvas.list_all_processors('$PROCESS_GROUP_ID')
+      p = processors[0]
+      nipyapi.canvas.update_processor(p, name=p.component.name + '-modified', auto_stop=True)
+      print('Modified processor:', p.component.name)
+      "
+
+      # Test: get-status (verify LOCALLY_MODIFIED)
+      echo "--- get-status (verify LOCALLY_MODIFIED) ---"
+      nipyapi ci get_status | tee -a outputs.env
+      export $(grep -v '^#' outputs.env | xargs)
+      if [ "$VERSION_STATE" = "LOCALLY_MODIFIED" ]; then
+        echo "SUCCESS: Flow is LOCALLY_MODIFIED"
+      else
+        echo "ERROR: Expected LOCALLY_MODIFIED, got $VERSION_STATE"
+        exit 1
+      fi
+
+      # Test: revert-flow
+      echo "--- revert-flow ---"
+      nipyapi ci revert_flow | tee -a outputs.env
+      export $(grep -v '^#' outputs.env | xargs)
+      if [ "$STATE" = "UP_TO_DATE" ]; then
+        echo "SUCCESS: Flow reverted to UP_TO_DATE"
+      else
+        echo "ERROR: Expected UP_TO_DATE, got $STATE"
+        exit 1
+      fi
+
+      # Test: stop-flow (with disable_controllers for cleanup)
+      echo "--- stop-flow ---"
+      nipyapi ci stop_flow --disable_controllers | tee -a outputs.env
+
+      # Test: cleanup (with full deletion for CI/CD)
+      echo "--- cleanup ---"
+      nipyapi ci cleanup --delete_parameter_context --force | tee -a outputs.env
+
+      echo ""
+      echo "============================================"
+      echo "ALL TESTS PASSED"
+      echo "============================================"
+
+  after_script:
+    - |
+      if [ "$LOCAL_TEST" != "true" ] && [ -d "nipyapi-infra" ]; then
+        echo "Stopping NiFi infrastructure..."
+        cd nipyapi-infra && make down || true
+      fi

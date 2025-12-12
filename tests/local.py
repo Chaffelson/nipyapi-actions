@@ -219,6 +219,8 @@ def test_stop_flow(github_token, output_file, process_group_id):
     env.update({
         'NIFI_ACTION_COMMAND': 'stop-flow',
         'NIFI_PROCESS_GROUP_ID': process_group_id,
+        # Disable controllers for cleanup - stop_flow defaults to not disabling
+        'NIFI_DISABLE_CONTROLLERS': 'true',
     })
 
     print(f"Process Group ID: {process_group_id}")
@@ -375,7 +377,9 @@ def test_cleanup(github_token, output_file, process_group_id):
     env.update({
         'NIFI_ACTION_COMMAND': 'cleanup',
         'NIFI_PROCESS_GROUP_ID': process_group_id,
+        # Full cleanup for CI/CD - cleanup defaults to safe mode
         'NIFI_FORCE_DELETE': 'true',
+        'NIFI_DELETE_PARAMETER_CONTEXT': 'true',
     })
 
     print(f"Process Group ID: {process_group_id}")

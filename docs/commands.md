@@ -2,18 +2,76 @@
 
 Complete reference for all NiPyAPI Actions commands.
 
+## CLI Usage
+
+All commands are available via the `nipyapi` CLI:
+
+```bash
+# Install CLI
+pip install "nipyapi[cli]"
+
+# Run commands
+nipyapi ci ensure_registry
+nipyapi ci deploy_flow
+nipyapi ci start_flow
+```
+
+The CLI auto-detects CI environments and formats output appropriately:
+- **GitHub Actions**: Outputs `key=value` pairs for `$GITHUB_OUTPUT`
+- **GitLab CI**: Outputs `KEY=VALUE` pairs for dotenv artifacts
+- **Terminal**: Outputs JSON by default
+
+## Environment Variables
+
+Both platforms use the same environment variables. The CLI reads these automatically.
+
+| Environment Variable | GitHub Input | Description |
+|---------------------|--------------|-------------|
+| `NIFI_API_ENDPOINT` | `nifi-api-endpoint` | NiFi API URL |
+| `NIFI_BEARER_TOKEN` | `nifi-bearer-token` | JWT bearer token |
+| `NIFI_USERNAME` | `nifi-username` | Basic auth username |
+| `NIFI_PASSWORD` | `nifi-password` | Basic auth password |
+| `NIFI_VERIFY_SSL` | `nifi-verify-ssl` | Verify SSL (default: true) |
+| `NIFI_PROCESS_GROUP_ID` | `process-group-id` | Target process group |
+| `NIFI_REGISTRY_CLIENT_ID` | `registry-client-id` | Registry client ID |
+| `NIFI_BUCKET` | `bucket` | Bucket/folder name |
+| `NIFI_FLOW` | `flow` | Flow name |
+
+**GitHub Actions:**
+```yaml
+- uses: Chaffelson/nipyapi-actions@main
+  with:
+    command: deploy-flow
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-bearer-token: ${{ secrets.NIFI_TOKEN }}
+    bucket: flows
+    flow: my-flow
+```
+
+**GitLab CI:**
+```yaml
+deploy-flow:
+  script:
+    - pip install "nipyapi[cli]"
+    - nipyapi ci deploy_flow | tee -a outputs.env
+  variables:
+    NIFI_API_ENDPOINT: $NIFI_URL
+    NIFI_BEARER_TOKEN: $NIFI_TOKEN
+    NIFI_BUCKET: flows
+    NIFI_FLOW: my-flow
+```
+
 ## Common Inputs
 
-These inputs are common to all commands:
+These connection settings are used by all commands:
 
-| Input | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `command` | Yes | | The command to execute |
-| `nifi-api-endpoint` | Yes | | NiFi API endpoint URL (e.g., `https://nifi:8443/nifi-api`) |
-| `nifi-username` | No | | NiFi username for basic authentication |
-| `nifi-password` | No | | NiFi password for basic authentication |
-| `nifi-verify-ssl` | No | `true` | Whether to verify SSL certificates |
-| `nipyapi-suppress-ssl-warnings` | No | `false` | Suppress SSL warning messages |
+| Environment Variable | Required | Description |
+|---------------------|----------|-------------|
+| `NIFI_API_ENDPOINT` | Yes | NiFi API endpoint URL |
+| `NIFI_BEARER_TOKEN` | No | JWT bearer token (alternative to username/password) |
+| `NIFI_USERNAME` | No | Basic auth username (alternative to bearer token) |
+| `NIFI_PASSWORD` | No | Basic auth password |
+| `NIFI_VERIFY_SSL` | No | Verify SSL certificates (default: true) |
 
 ---
 
@@ -99,18 +157,34 @@ Then deploy with `bucket: production` and `flow: my-flow`.
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   id: registry
   with:
     command: ensure-registry
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     github-registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
     registry-client-name: my-github-registry
     github-registry-repo: myorg/my-flows
-    github-registry-branch: main
+```
+
+**GitLab CI:**
+```yaml
+ensure-registry:
+  script:
+    - pip install "nipyapi[cli]"
+    - nipyapi ci ensure_registry | tee outputs.env
+  variables:
+    NIFI_API_ENDPOINT: $NIFI_URL
+    NIFI_BEARER_TOKEN: $NIFI_TOKEN
+    GH_REGISTRY_TOKEN: $GH_REGISTRY_TOKEN
+    NIFI_REGISTRY_CLIENT_NAME: my-github-registry
+    NIFI_REGISTRY_REPO: myorg/my-flows
+  artifacts:
+    reports:
+      dotenv: outputs.env
 ```
 
 ---
@@ -155,18 +229,28 @@ If `branch` is not specified:
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   id: deploy
   with:
     command: deploy-flow
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
     bucket: flows
     flow: my-flow
-    version: abc123def  # Optional: specific commit
+```
+
+**GitLab CI:**
+```yaml
+deploy-flow:
+  script:
+    - nipyapi ci deploy_flow | tee -a outputs.env
+  variables:
+    NIFI_REGISTRY_CLIENT_ID: $REGISTRY_CLIENT_ID
+    NIFI_BUCKET: flows
+    NIFI_FLOW: my-flow
 ```
 
 ---
@@ -197,14 +281,23 @@ Enables controller services and starts all processors in a Process Group. The fl
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   with:
     command: start-flow
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+**GitLab CI:**
+```yaml
+start-flow:
+  script:
+    - nipyapi ci start_flow | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
 ```
 
 ---
@@ -215,14 +308,18 @@ Stop a running Process Group.
 
 ### Description
 
-Stops all processors and optionally disables controller services in a Process Group.
+Stops all processors in a Process Group. By default, controller services remain
+enabled so the flow can be quickly restarted.
+
+Use `--disable_controllers` if you need to delete the process group afterward
+(deletion requires disabled controllers and purged queues).
 
 ### Inputs
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `process-group-id` | Yes | | Process Group ID to stop |
-| `disable-controllers` | No | `true` | Disable controller services after stopping processors |
+| `disable-controllers` | No | `false` | Also disable controller services (needed before deletion) |
 
 ### Outputs
 
@@ -230,19 +327,37 @@ Stops all processors and optionally disables controller services in a Process Gr
 |--------|-------------|
 | `stopped` | `true` if the process group was stopped |
 | `process-group-name` | Name of the stopped process group |
-| `message` | Status message |
+| `controllers-disabled` | `true` if controllers were disabled |
 | `success` | `true` if successful |
 
 ### Example
 
+**GitHub Actions (simple stop):**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   with:
     command: stop-flow
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+**GitLab CI (simple stop):**
+```yaml
+stop-flow:
+  script:
+    - nipyapi ci stop_flow | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+```
+
+**GitLab CI (stop with disabled controllers - before deletion):**
+```yaml
+stop-for-deletion:
+  script:
+    - nipyapi ci stop_flow --disable_controllers | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
 ```
 
 ---
@@ -277,25 +392,25 @@ Changes the version of an already-deployed Process Group to a specified version 
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
-# Change to a specific tagged version
 - uses: Chaffelson/nipyapi-actions@main
   with:
     command: change-version
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-    target-version: v1.0.0
+    target-version: v1.0.0  # omit for latest
+```
 
-# Change to latest version (omit target-version)
-- uses: Chaffelson/nipyapi-actions@main
-  with:
-    command: change-version
-    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
-    process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+**GitLab CI:**
+```yaml
+change-version:
+  script:
+    - nipyapi ci change_version | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+    NIFI_TARGET_VERSION: v1.0.0  # omit for latest
 ```
 
 ### Notes
@@ -334,23 +449,23 @@ Reverts any local (uncommitted) changes made to a deployed Process Group, restor
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
-  id: revert
   with:
     command: revert-flow
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
 
-- name: Check revert result
-  run: |
-    if [ "${{ steps.revert.outputs.reverted }}" = "true" ]; then
-      echo "Local changes were reverted"
-    else
-      echo "Flow was already up to date"
-    fi
+**GitLab CI:**
+```yaml
+revert-flow:
+  script:
+    - nipyapi ci revert_flow | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
 ```
 
 ### Notes
@@ -363,40 +478,66 @@ Reverts any local (uncommitted) changes made to a deployed Process Group, restor
 
 ## cleanup
 
-Delete a Process Group and its associated resources.
+Stop and optionally delete a Process Group.
 
 ### Description
 
-Stops processors, disables controller services, purges connections, and deletes a Process Group. Optionally deletes the associated parameter context.
+By default, stops processors, disables controller services, and deletes the Process Group.
+Does NOT delete the parameter context by default (safe for shared contexts like Openflow connectors).
+
+Use explicit flags for more aggressive cleanup in CI/CD pipelines.
 
 ### Inputs
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `process-group-id` | Yes | | Process Group ID to delete |
-| `force-delete` | No | `true` | Force deletion even if flow has data |
-| `delete-parameter-context` | No | `true` | Delete the associated parameter context |
+| `process-group-id` | Yes | | Process Group ID to clean up |
+| `stop-only` | No | `false` | Only stop processors, don't delete anything |
+| `force` | No | `false` | Force deletion even if flow has queued data |
+| `delete-parameter-context` | No | `false` | Also delete the parameter context (use with caution) |
+| `disable-controllers` | No | `true` | Disable controller services after stopping |
 
 ### Outputs
 
 | Output | Description |
 |--------|-------------|
+| `stopped` | `true` if processors were stopped |
 | `deleted` | `true` if the process group was deleted |
-| `deleted-name` | Name of the deleted process group |
-| `message` | Status message |
+| `process-group-name` | Name of the process group |
+| `parameter-context-deleted` | `true` if parameter context was deleted |
 | `success` | `true` if successful |
 
 ### Example
 
+**GitHub Actions (safe cleanup - keeps parameter context):**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
-  if: always()  # Run even if previous steps failed
+  if: always()
   with:
     command: cleanup
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+**GitLab CI (full cleanup for CI/CD pipelines):**
+```yaml
+cleanup:
+  script:
+    # Full cleanup with parameter context deletion (only for CI-deployed flows)
+    - nipyapi ci cleanup --delete_parameter_context --force | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+  when: always
+```
+
+**GitLab CI (stop only - no deletion):**
+```yaml
+stop-flow:
+  script:
+    - nipyapi ci cleanup --stop_only | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
 ```
 
 ---
@@ -427,15 +568,25 @@ Updates parameter values in the parameter context attached to a Process Group. T
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   with:
     command: configure-params
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-    parameters: '{"version": "2.0.0", "environment": "staging", "api_key": "${{ secrets.API_KEY }}"}'
+    parameters: '{"version": "2.0.0", "environment": "staging"}'
+```
+
+**GitLab CI:**
+```yaml
+configure-params:
+  script:
+    - nipyapi ci configure_params | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+    NIFI_PARAMETERS: '{"version": "2.0.0", "environment": "staging"}'
 ```
 
 ### Notes
@@ -517,31 +668,34 @@ Returns detailed information about a Process Group including processor states, c
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   id: status
   with:
     command: get-status
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
 
-- name: Check for issues
-  run: |
-    if [ "${{ steps.status.outputs.invalid-processors }}" != "0" ]; then
-      echo "ERROR: Flow has invalid processors"
-      exit 1
-    fi
-    if [ "${{ steps.status.outputs.running-processors }}" != "${{ steps.status.outputs.total-processors }}" ]; then
-      echo "WARNING: Not all processors are running"
-    fi
+**GitLab CI:**
+```yaml
+get-status:
+  script:
+    - nipyapi ci get_status | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+  artifacts:
+    reports:
+      dotenv: outputs.env
 ```
 
 ---
 
 ## See Also
 
-- [Setup Guide](setup.md) - Getting started
-- [Security Guide](security.md) - PAT and secrets best practices
+- [GitHub Actions Guide](github-actions.md) - GitHub Actions setup
+- [GitLab CI Guide](gitlab-ci.md) - GitLab CI setup
+- [Security Guide](security.md) - Authentication and secrets
 - [How It Works](how-it-works.md) - Architecture overview

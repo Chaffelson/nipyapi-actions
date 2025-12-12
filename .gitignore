@@ -33,8 +33,13 @@ Thumbs.db
 # Act artifacts
 .act-*
 
+# GitLab CI local artifacts
+.gitlab-ci-local/
+outputs.env
+
 # Distribution / packaging
 dist/
 build/
 *.egg-info/
 logs.txt
+gitlablogs.txt

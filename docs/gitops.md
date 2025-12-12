@@ -6,8 +6,8 @@ This guide covers best practices for managing NiFi flows using Git as the source
 
 GitOps applies Git-based workflows to infrastructure and application deployment:
 
-- **Git is the source of truth** - Flow definitions live in GitHub
-- **Changes via pull requests** - All modifications go through PR review
+- **Git is the source of truth** - Flow definitions live in GitHub or GitLab
+- **Changes via pull/merge requests** - All modifications go through review
 - **Automated testing** - CI validates flows before merge
 - **Declarative state** - The repository defines what should be deployed
 
@@ -55,9 +55,9 @@ When setting up version control in NiFi, or when using the `ensure-registry` act
 - Use **Version** → **Commit local changes** to save versions
 - Each commit creates a new version in your feature branch
 
-**4. Create Pull Request**
+**4. Create Pull/Merge Request**
 
-Push your branch and create a PR to `main`. If you have set up a CI workflow (see [Setup Guide](setup.md)), it will:
+Push your branch and create a PR (GitHub) or MR (GitLab) to `main`. If you have set up a CI workflow, it will:
 - Deploy your flow version to a test NiFi instance
 - Run automated tests
 - Clean up after testing
@@ -173,14 +173,25 @@ With `IGNORE_CHANGES`:
 
 ### Setting Environment-Specific Parameters
 
-Use the `configure-params` action to set values after deployment:
+Use the `configure-params` command to set values after deployment:
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   with:
     command: configure-params
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
     parameters: '{"database_url": "${{ secrets.DB_URL }}", "api_key": "${{ secrets.API_KEY }}"}'
+```
+
+**GitLab CI:**
+```yaml
+configure-params:
+  script:
+    - nipyapi ci configure_params
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+    NIFI_PARAMETERS: '{"database_url": "$DB_URL", "api_key": "$API_KEY"}'
 ```
 
 ### Parameter Best Practices
@@ -200,8 +211,9 @@ Simple projects with one or few flows:
 my-nifi-flows/
 ├── flows/
 │   └── my-flow.json
-├── .github/workflows/
+├── .github/workflows/     # GitHub Actions
 │   └── test-flow.yml
+├── .gitlab-ci.yml         # GitLab CI (alternative)
 └── README.md
 ```
 
@@ -218,8 +230,9 @@ nifi-flows/
 ├── templates/             # Reusable patterns
 │   ├── kafka-ingress.json
 │   └── object-store-egress.json
-└── .github/workflows/
-    └── test-flow.yml
+├── .github/workflows/     # GitHub Actions
+│   └── test-flow.yml
+└── .gitlab-ci.yml         # GitLab CI (alternative)
 ```
 
 Note: Don't separate buckets by environment (dev/prod). The same flow definition is promoted through environments - that's the point of GitOps. Use branches to manage promotion.
@@ -234,8 +247,9 @@ my-application/
 ├── nifi-flows/            # Use repository-path: "nifi-flows"
 │   └── data-ingestion/    # bucket: "data-ingestion"
 │       └── ingest.json
-└── .github/workflows/
-    └── ci.yml
+├── .github/workflows/
+│   └── ci.yml
+└── .gitlab-ci.yml
 ```
 
 ## CI Workflow Patterns
@@ -284,6 +298,7 @@ jobs:
 
 ## See Also
 
-- [Setup Guide](setup.md) - Initial setup instructions
+- [GitHub Actions Guide](github-actions.md) - GitHub Actions setup
+- [GitLab CI Guide](gitlab-ci.md) - GitLab CI setup
 - [Commands Reference](commands.md) - All available commands
 - [Security Guide](security.md) - Secrets and permissions

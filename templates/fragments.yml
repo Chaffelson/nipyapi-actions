@@ -1,0 +1,108 @@
+# NiPyAPI Actions - Script Fragments
+#
+# Reusable CLI commands for NiFi flow operations.
+# Use these within your own jobs via !reference.
+#
+# Usage:
+#   include:
+#     - remote: 'https://raw.githubusercontent.com/nipyapi/nipyapi-actions/main/templates/fragments.yml'
+#
+#   my-job:
+#     image: python:3.11
+#     before_script:
+#       - !reference [.nipyapi, setup]
+#     script:
+#       - !reference [.nipyapi, ensure-registry]
+#       - !reference [.nipyapi, deploy-flow]
+#       - # Your custom steps here
+#
+# Required environment variables:
+#   - NIFI_API_ENDPOINT: NiFi API URL
+#   - NIFI_USERNAME/NIFI_PASSWORD or NIFI_BEARER_TOKEN: NiFi auth
+#   - GH_REGISTRY_TOKEN or GL_REGISTRY_TOKEN: Git provider token
+#   - NIFI_REGISTRY_REPO: Repository in owner/repo format
+#
+# All commands use the nipyapi CLI which auto-detects GitLab CI
+# and outputs in dotenv format (KEY=VALUE).
+
+.nipyapi:
+  # Setup: Install nipyapi CLI
+  setup:
+    - pip install -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+
+  # Load outputs from previous command into environment
+  load-outputs:
+    - export $(grep -v '^#' outputs.env | xargs)
+
+  # ensure-registry: Create/update registry client
+  # Inputs: NIFI_REGISTRY_REPO, GH_REGISTRY_TOKEN or GL_REGISTRY_TOKEN
+  # Outputs: REGISTRY_CLIENT_ID, REGISTRY_CLIENT_NAME
+  ensure-registry:
+    - nipyapi ci ensure_registry | tee -a outputs.env
+
+  # deploy-flow: Deploy flow from registry
+  # Inputs: NIFI_REGISTRY_CLIENT_ID, NIFI_BUCKET, NIFI_FLOW
+  # Outputs: PROCESS_GROUP_ID, PROCESS_GROUP_NAME, DEPLOYED_VERSION
+  deploy-flow:
+    - nipyapi ci deploy_flow | tee -a outputs.env
+
+  # start-flow: Start processors and controllers
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: STARTED, PROCESSORS_STARTED
+  start-flow:
+    - nipyapi ci start_flow | tee -a outputs.env
+
+  # stop-flow: Stop processors (controllers remain enabled for quick restart)
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: STOPPED, PROCESS_GROUP_NAME, CONTROLLERS_DISABLED
+  stop-flow:
+    - nipyapi ci stop_flow | tee -a outputs.env
+
+  # stop-for-deletion: Stop processors and disable controllers (before cleanup)
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: STOPPED, PROCESS_GROUP_NAME, CONTROLLERS_DISABLED
+  stop-for-deletion:
+    - nipyapi ci stop_flow --disable_controllers | tee -a outputs.env
+
+  # get-status: Get comprehensive flow status
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: STATE, VERSION_STATE, TOTAL_PROCESSORS, etc.
+  get-status:
+    - nipyapi ci get_status | tee -a outputs.env
+
+  # configure-params: Set parameter context values
+  # Inputs: NIFI_PROCESS_GROUP_ID, NIFI_PARAMETERS (JSON)
+  # Outputs: PARAMETERS_UPDATED, PARAMETERS_COUNT, CONTEXT_NAME
+  configure-params:
+    - nipyapi ci configure_params | tee -a outputs.env
+
+  # change-version: Change to different version
+  # Inputs: NIFI_PROCESS_GROUP_ID, NIFI_TARGET_VERSION (optional)
+  # Outputs: PREVIOUS_VERSION, NEW_VERSION, VERSION_STATE
+  change-version:
+    - nipyapi ci change_version | tee -a outputs.env
+
+  # revert-flow: Revert uncommitted local changes
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: REVERTED, STATE
+  revert-flow:
+    - nipyapi ci revert_flow | tee -a outputs.env
+
+  # cleanup: Stop and delete flow (process group only, preserves parameter context)
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: STOPPED, DELETED, PROCESS_GROUP_NAME
+  cleanup:
+    - nipyapi ci cleanup | tee -a outputs.env
+
+  # cleanup-full: Full cleanup including parameter context (for CI/CD pipelines)
+  # WARNING: Only use if you deployed the flow - this deletes shared resources
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: STOPPED, DELETED, PROCESS_GROUP_NAME, PARAMETER_CONTEXT_DELETED
+  cleanup-full:
+    - nipyapi ci cleanup --delete_parameter_context --force | tee -a outputs.env
+
+  # stop-only: Just stop the flow without deleting anything
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: STOPPED, PROCESS_GROUP_NAME
+  stop-only:
+    - nipyapi ci cleanup --stop_only | tee -a outputs.env

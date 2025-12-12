@@ -1,6 +1,6 @@
-# Setup Guide
+# GitHub Actions Guide
 
-This guide walks you through setting up NiPyAPI Actions for your NiFi CI/CD workflow.
+Setup and usage for NiPyAPI Actions with GitHub Actions.
 
 ## Prerequisites
 
@@ -45,9 +45,15 @@ You can use either a fine-grained PAT (as above) or a classic PAT with `repo` sc
 | Secret Name | Description |
 |-------------|-------------|
 | `NIFI_URL` | Your NiFi API endpoint (e.g., `https://nifi.example.com:8443/nifi-api`) |
+| `NIFI_BEARER_TOKEN` | NiFi JWT bearer token |
+| `GH_REGISTRY_TOKEN` | The PAT you created in Step 1 |
+
+**Or** use basic authentication instead of bearer token:
+
+| Secret Name | Description |
+|-------------|-------------|
 | `NIFI_USERNAME` | NiFi username |
 | `NIFI_PASSWORD` | NiFi password |
-| `GH_REGISTRY_TOKEN` | The PAT you created in Step 1 |
 
 ## Step 3: Version Control Your Flows
 
@@ -104,8 +110,7 @@ jobs:
         with:
           command: ensure-registry
           nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-          nifi-username: ${{ secrets.NIFI_USERNAME }}
-          nifi-password: ${{ secrets.NIFI_PASSWORD }}
+          nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}  # or nifi-username/nifi-password
           github-registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
           registry-client-name: my-flow-registry
 
@@ -115,8 +120,7 @@ jobs:
         with:
           command: deploy-flow
           nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-          nifi-username: ${{ secrets.NIFI_USERNAME }}
-          nifi-password: ${{ secrets.NIFI_PASSWORD }}
+          nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
           registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
           bucket: flows
           flow: my-flow
@@ -126,8 +130,7 @@ jobs:
         with:
           command: start-flow
           nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-          nifi-username: ${{ secrets.NIFI_USERNAME }}
-          nifi-password: ${{ secrets.NIFI_PASSWORD }}
+          nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
 
       - name: Run Tests
@@ -141,9 +144,11 @@ jobs:
         with:
           command: cleanup
           nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-          nifi-username: ${{ secrets.NIFI_USERNAME }}
-          nifi-password: ${{ secrets.NIFI_PASSWORD }}
+          nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+          # For CI/CD full cleanup, enable these options:
+          delete-parameter-context: 'true'
+          force: 'true'
 ```
 
 ## Step 5: Test Your Setup
@@ -181,9 +186,10 @@ Ensure your NiFi instance is:
 - Not blocked by firewall rules
 - Using the correct port in `nifi-api-endpoint`
 
-## Next Steps
+## See Also
 
-- [GitOps Guide](gitops.md) - Feature branch workflows and parameter handling
-- [Commands Reference](commands.md) - All available commands and options
-- [Security Guide](security.md) - Best practices for secrets and permissions
-- [How It Works](how-it-works.md) - Understanding the architecture
+- [GitLab CI Guide](gitlab-ci.md) - Using with GitLab CI/CD
+- [Commands Reference](commands.md) - All commands and options
+- [GitOps Guide](gitops.md) - Feature branches and parameter handling
+- [Security Guide](security.md) - PAT setup and best practices
+- [How It Works](how-it-works.md) - Architecture overview

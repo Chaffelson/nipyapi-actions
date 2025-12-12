@@ -2,11 +2,13 @@
 
 Best practices for securing your NiFi CI/CD workflow with NiPyAPI Actions.
 
-## GitHub Token Requirements
+## Git Provider Token Requirements
 
-### Why a PAT is Required
+NiFi's Git Flow Registry Clients (GitHub and GitLab) require Personal Access Tokens (PATs) for repository access.
 
-The NiFi GitHub Flow Registry Client requires a **Personal Access Token (PAT)**. The automatic `GITHUB_TOKEN` provided by GitHub Actions does **not** work because:
+### GitHub Token Requirements
+
+The automatic `GITHUB_TOKEN` provided by GitHub Actions does **not** work because:
 
 - `GITHUB_TOKEN` is an app installation token, not a user token
 - NiFi's client calls GitHub's `/user` API endpoint for authentication
@@ -16,6 +18,24 @@ The NiFi GitHub Flow Registry Client requires a **Personal Access Token (PAT)**.
 ```
 "Resource not accessible by integration"
 ```
+
+### GitLab Token Requirements
+
+GitLab requires more permissive token scopes than GitHub:
+
+| Setting | Requirement |
+|---------|-------------|
+| Role | Developer or higher (not Guest) |
+| Scopes | `api`, `read_repository`, `write_repository` |
+
+The `api` scope is required because NiFi uses GitLab's REST API to browse repository contents.
+
+**Error you may see with insufficient permissions:**
+```
+"Client does not have read access to the repository"
+```
+
+This error can also indicate token rate limiting on trial/free GitLab accounts. Try creating a new token if this occurs unexpectedly.
 
 ### Creating a Fine-Grained PAT (Recommended)
 
@@ -64,7 +84,7 @@ If you cannot use fine-grained tokens (e.g., GitHub Enterprise Server older than
 
 ## Storing Secrets
 
-### Repository Secrets (Recommended for CI)
+### GitHub Actions - Repository Secrets
 
 Repository secrets are available to all workflows in your repository:
 
@@ -75,9 +95,29 @@ Repository secrets are available to all workflows in your repository:
 | Secret Name | Description |
 |-------------|-------------|
 | `NIFI_URL` | NiFi API endpoint |
+| `NIFI_BEARER_TOKEN` | NiFi JWT bearer token |
+| `GH_REGISTRY_TOKEN` | GitHub PAT (if flows in GitHub) |
+| `GL_REGISTRY_TOKEN` | GitLab PAT (if flows in GitLab) |
+
+Or use basic auth instead of bearer token:
+
+| Secret Name | Description |
+|-------------|-------------|
 | `NIFI_USERNAME` | NiFi username |
 | `NIFI_PASSWORD` | NiFi password |
-| `GH_REGISTRY_TOKEN` | GitHub PAT |
+
+### GitLab CI - CI/CD Variables
+
+In GitLab, configure variables at **Settings** > **CI/CD** > **Variables**:
+
+| Variable | Description |
+|----------|-------------|
+| `NIFI_API_ENDPOINT` | NiFi API endpoint |
+| `NIFI_BEARER_TOKEN` | NiFi JWT bearer token |
+| `GH_REGISTRY_TOKEN` | GitHub PAT (if flows in GitHub) |
+| `GL_REGISTRY_TOKEN` | GitLab PAT (if flows in GitLab) |
+
+Mark sensitive variables as **Masked** to prevent them appearing in job logs.
 
 ### Environment Secrets (For Approval Gates)
 
@@ -143,9 +183,17 @@ GitHub automatically protects against secret leakage:
 
 ## NiFi Authentication
 
-### Single User Mode
+### Bearer Token
 
-For development and testing, NiFi's single-user mode is simplest:
+For NiFi instances using OIDC or JWT authentication:
+
+```yaml
+nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
+```
+
+### Basic Authentication
+
+For NiFi instances using username/password authentication:
 
 ```yaml
 nifi-username: ${{ secrets.NIFI_USERNAME }}
@@ -198,9 +246,9 @@ nipyapi-suppress-ssl-warnings: 'true'
 
 ## Security Checklist
 
-- [ ] Using fine-grained PAT with minimal permissions
+- [ ] Using PAT with minimal permissions (fine-grained for GitHub, scoped for GitLab)
 - [ ] PAT scoped to specific repository
-- [ ] Secrets stored in repository/environment secrets
+- [ ] Secrets stored in repository/environment secrets (masked in GitLab)
 - [ ] Branch protection enabled on main
 - [ ] Workflow permissions restricted
 - [ ] SSL verification enabled in production
@@ -210,6 +258,8 @@ nipyapi-suppress-ssl-warnings: 'true'
 
 ## See Also
 
-- [Setup Guide](setup.md) - Initial setup instructions
+- [GitHub Actions Guide](github-actions.md) - GitHub Actions setup
+- [GitLab CI Guide](gitlab-ci.md) - GitLab CI setup
 - [How It Works](how-it-works.md) - Architecture overview
 - [GitHub Actions Security Hardening](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions)
+- [GitLab CI/CD Security](https://docs.gitlab.com/ee/ci/variables/#cicd-variable-security)
