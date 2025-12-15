@@ -319,6 +319,27 @@ jobs:
         run: |
           echo "Flow stopped: ${{ steps.stop.outputs.stopped }}"
 
+      # Test: Purge FlowFiles
+      - name: Test purge-flowfiles
+        uses: ./
+        id: purge
+        with:
+          command: purge-flowfiles
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify purge
+        run: |
+          echo "Purged: ${{ steps.purge.outputs.purged }}"
+          echo "Connections purged: ${{ steps.purge.outputs.connections-purged }}"
+          if [ "${{ steps.purge.outputs.purged }}" != "true" ]; then
+            echo "ERROR: Expected purged=true"
+            exit 1
+          fi
+
       # Test: Cleanup
       - name: Test cleanup
         if: always()

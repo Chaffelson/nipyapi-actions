@@ -4,7 +4,7 @@ author: 'Chaffelson'
 
 inputs:
   command:
-    description: 'Command: ensure-registry, deploy-flow, start-flow, stop-flow, cleanup, configure-params, get-status, change-version, revert-flow'
+    description: 'Command: ensure-registry, deploy-flow, start-flow, stop-flow, cleanup, configure-params, get-status, change-version, revert-flow, purge-flowfiles'
     required: true
 
   # NiFi Connection
@@ -166,6 +166,7 @@ runs:
           change-version)   CMD="change_version" ;;
           revert-flow)      CMD="revert_flow" ;;
           cleanup)          CMD="cleanup" ;;
+          purge-flowfiles)  CMD="purge_flowfiles" ;;
           *)
             echo "Unknown command: ${{ inputs.command }}"
             exit 1

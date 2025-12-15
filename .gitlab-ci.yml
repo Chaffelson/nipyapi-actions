@@ -79,8 +79,10 @@ test-nifi-operations:
     - |
       if [ "$LOCAL_TEST" != "true" ]; then
         apk add --no-cache bash make git curl python3 py3-pip
+        pip install --break-system-packages -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+      else
+        echo "LOCAL_TEST=true: using pre-installed nipyapi from UV environment"
       fi
-      pip install --break-system-packages -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
   script:
     - |
       set -e
@@ -259,6 +261,17 @@ test-nifi-operations:
       # Test: stop-flow (with disable_controllers for cleanup)
       echo "--- stop-flow ---"
       nipyapi ci stop_flow --disable_controllers | tee -a outputs.env
+
+      # Test: purge-flowfiles
+      echo "--- purge-flowfiles ---"
+      nipyapi ci purge_flowfiles | tee -a outputs.env
+      export $(grep -v '^#' outputs.env | xargs)
+      if [ "$PURGED" = "true" ]; then
+        echo "SUCCESS: FlowFiles purged"
+      else
+        echo "ERROR: Expected PURGED=true"
+        exit 1
+      fi
 
       # Test: cleanup (with full deletion for CI/CD)
       echo "--- cleanup ---"

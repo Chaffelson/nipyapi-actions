@@ -152,15 +152,25 @@ test-act-verbose: check-env check-act check-infra generate-secrets
 # Run just the setup test (no NiFi required)
 gitlab-test: check-env
 	@echo "Running GitLab CI setup test..."
-	@gitlab-ci-local --job test-setup
+	@echo "Ensuring nipyapi CLI is available..."
+	@$(UV_RUN) python -c "import nipyapi.ci; print('nipyapi.ci available')" || \
+		(echo "ERROR: nipyapi.ci not available. Run 'uv sync' first"; exit 1)
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" gitlab-ci-local \
+		--force-shell-executor \
+		--job test-setup \
+		--variable LOCAL_TEST="true"
 
 # Run full pipeline (requires NiFi running)
 # Note: Uses LOCAL_TEST=true to skip DinD and use host NiFi
 # Uses --force-shell-executor to bypass DinD service startup in gitlab-ci-local
 # Supports both GH_REGISTRY_TOKEN and GL_REGISTRY_TOKEN
+# Note: Requires nipyapi CLI to be installed - run 'uv sync' first
 gitlab-test-all: check-env check-infra
 	@echo "Running full GitLab CI pipeline (local mode)..."
-	@gitlab-ci-local \
+	@echo "Ensuring nipyapi CLI is available..."
+	@$(UV_RUN) python -c "import nipyapi.ci; print('nipyapi.ci available')" || \
+		(echo "ERROR: nipyapi.ci not available. Run 'uv sync' first"; exit 1)
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" gitlab-ci-local \
 		--force-shell-executor \
 		--variable LOCAL_TEST="true" \
 		--variable NIFI_API_ENDPOINT="https://localhost:9447/nifi-api" \

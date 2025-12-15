@@ -27,8 +27,14 @@
 
 .nipyapi:
   # Setup: Install nipyapi CLI
+  # Note: Skips install when LOCAL_TEST=true (uses pre-installed nipyapi from UV)
   setup:
-    - pip install -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+    - |
+      if [ "$LOCAL_TEST" != "true" ]; then
+        pip install -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+      else
+        echo "LOCAL_TEST=true: using pre-installed nipyapi from UV environment"
+      fi
 
   # Load outputs from previous command into environment
   load-outputs:
@@ -106,3 +112,10 @@
   # Outputs: STOPPED, PROCESS_GROUP_NAME
   stop-only:
     - nipyapi ci cleanup --stop_only | tee -a outputs.env
+
+  # purge-flowfiles: Purge all queued FlowFiles from connections
+  # Useful before cleanup or when queue needs to be cleared
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: PROCESS_GROUP_ID, PROCESS_GROUP_NAME, PURGED, CONNECTIONS_PURGED, FLOWFILES_BEFORE, FLOWFILES_AFTER
+  purge-flowfiles:
+    - nipyapi ci purge_flowfiles | tee -a outputs.env
