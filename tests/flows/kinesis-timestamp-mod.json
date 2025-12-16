@@ -1,0 +1,11 @@
+{
+  "flow" : {
+    "createdTimestamp" : 1765895845306,
+    "description" : "Test Flow for mo",
+    "identifier" : "kinesis-timestamp-mod",
+    "lastModifiedTimestamp" : 1765895845306,
+    "name" : "kinesis-timestamp-mod",
+    "versionCount" : 0
+  },
+  "latest" : false
+}
