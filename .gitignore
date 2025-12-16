@@ -43,3 +43,6 @@ build/
 *.egg-info/
 logs.txt
 gitlablogs.txt
+
+# Local files
+PR_DESCRIPTION.md

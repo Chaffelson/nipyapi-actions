@@ -101,21 +101,84 @@ inputs:
     default: 'false'
 
 outputs:
+  # ensure-registry outputs
   registry-client-id:
     description: 'ID of the registry client'
-    value: ${{ steps.run.outputs.registry_client_id }}
+    value: ${{ steps.run.outputs['registry-client-id'] }}
   registry-client-name:
     description: 'Name of the registry client'
-    value: ${{ steps.run.outputs.registry_client_name }}
+    value: ${{ steps.run.outputs['registry-client-name'] }}
+
+  # deploy-flow outputs
   process-group-id:
     description: 'ID of the deployed Process Group'
-    value: ${{ steps.run.outputs.process_group_id }}
+    value: ${{ steps.run.outputs['process-group-id'] }}
   process-group-name:
     description: 'Name of the deployed Process Group'
-    value: ${{ steps.run.outputs.process_group_name }}
+    value: ${{ steps.run.outputs['process-group-name'] }}
   deployed-version:
     description: 'Version deployed'
-    value: ${{ steps.run.outputs.deployed_version }}
+    value: ${{ steps.run.outputs['deployed-version'] }}
+
+  # start-flow outputs
+  started:
+    description: 'Whether the flow was started'
+    value: ${{ steps.run.outputs.started }}
+
+  # stop-flow outputs
+  stopped:
+    description: 'Whether the flow was stopped'
+    value: ${{ steps.run.outputs.stopped }}
+
+  # get-status outputs
+  state:
+    description: 'Current state of the process group'
+    value: ${{ steps.run.outputs.state }}
+  running-processors:
+    description: 'Number of running processors'
+    value: ${{ steps.run.outputs['running-processors'] }}
+  enabled-controllers:
+    description: 'Number of enabled controller services'
+    value: ${{ steps.run.outputs['enabled-controllers'] }}
+  version-state:
+    description: 'Version control state (UP_TO_DATE, LOCALLY_MODIFIED, etc)'
+    value: ${{ steps.run.outputs['version-state'] }}
+
+  # configure-params outputs
+  parameters-updated:
+    description: 'Whether parameters were updated'
+    value: ${{ steps.run.outputs['parameters-updated'] }}
+
+  # change-version outputs
+  previous-version:
+    description: 'Previous version before change'
+    value: ${{ steps.run.outputs['previous-version'] }}
+  new-version:
+    description: 'New version after change'
+    value: ${{ steps.run.outputs['new-version'] }}
+
+  # revert-flow outputs
+  reverted:
+    description: 'Whether the flow was reverted'
+    value: ${{ steps.run.outputs.reverted }}
+
+  # purge-flowfiles outputs
+  purged:
+    description: 'Whether flowfiles were purged'
+    value: ${{ steps.run.outputs.purged }}
+  connections-purged:
+    description: 'Number of connections purged'
+    value: ${{ steps.run.outputs['connections-purged'] }}
+
+  # cleanup outputs
+  deleted:
+    description: 'Whether the process group was deleted'
+    value: ${{ steps.run.outputs.deleted }}
+  deleted-name:
+    description: 'Name of the deleted process group'
+    value: ${{ steps.run.outputs['deleted-name'] }}
+
+  # Common output
   success:
     description: 'Whether the command succeeded'
     value: ${{ steps.run.outputs.success }}

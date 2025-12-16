@@ -58,7 +58,7 @@ jobs:
           nifi-password: password1234
           nifi-verify-ssl: 'false'
           registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
-          github-registry-repo: ${{ github.repository }}
+          registry-repo: ${{ github.repository }}
           registry-client-name: 'ci-test-registry'
           repository-path: 'tests'
 
@@ -352,7 +352,7 @@ jobs:
           nifi-password: password1234
           nifi-verify-ssl: 'false'
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-          force-delete: 'true'
+          force: 'true'
           delete-parameter-context: 'true'
 
       - name: Verify cleanup
