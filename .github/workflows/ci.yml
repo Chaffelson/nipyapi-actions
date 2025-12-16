@@ -104,7 +104,6 @@ jobs:
           nifi-password: password1234
           nifi-verify-ssl: 'false'
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-          enable-controllers: 'true'
 
       - name: Verify flow started
         run: |
