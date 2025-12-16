@@ -26,16 +26,27 @@ nipyapi canvas update_processor "$PROC" --name "new-name"
 
 **Solution:** Add type hints to nipyapi functions and enhance CLI to auto-deserialize JSON input when the expected type is a NiFi DTO. The `nipyapi.utils.load()` function already supports this.
 
-### Parameter Context Inheritance
+### Parameter Context Inheritance in Actions
 
-**Status:** Not started
+**Status:** Partially complete
 
-When `configure-params` is called, the directly attached parameter context may not contain the parameter being updated - it could be in an inherited parent context.
+The `nipyapi` CLI already has full support for inheritance-aware parameter configuration via
+`nipyapi ci configure_inherited_params`. This function:
 
-**Options:**
-- Walk the inheritance chain to find where parameter is defined
-- Add optional `parameter-context-id` input for explicit targeting
-- Fail with helpful error suggesting which context to target
+- Walks the inheritance chain to find where each parameter is defined
+- Routes updates to the correct owning context
+- Supports dry-run mode to preview changes
+- Warns about asset replacement conflicts
+- Handles sensitive parameters correctly
+
+**Remaining work:**
+
+- Expose `configure-inherited-params` command in `action.yml` (GitHub Actions)
+- Add `configure-inherited-params` and `configure-inherited-params-dry-run` fragments to `fragments.yml` (GitLab)
+- Add `dry-run` and `allow-override` inputs to the action
+- Add outputs for `plan`, `warnings`, `errors`
+
+**Workaround:** Users can call `nipyapi ci configure_inherited_params` directly in their workflows.
 
 ### Smart Flow Placement
 
