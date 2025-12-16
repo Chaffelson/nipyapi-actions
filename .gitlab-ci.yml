@@ -35,7 +35,7 @@ variables:
   NIFI_FLOW: cicd-demo-flow
 
   # Infrastructure branch
-  NIPYAPI_BRANCH: feature/github-cicd-versioning
+  NIPYAPI_BRANCH: feature/cli
 
 # =============================================================================
 # Include templates and fragments
