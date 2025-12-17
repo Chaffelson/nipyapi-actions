@@ -87,7 +87,7 @@ def run_command(env_vars):
         'stop-flow': 'stop_flow',
         'get-status': 'get_status',
         'configure-params': 'configure_params',
-        'change-version': 'change_version',
+        'change-version': 'change_flow_version',
         'revert-flow': 'revert_flow',
         'cleanup': 'cleanup',
         'purge-flowfiles': 'purge_flowfiles',

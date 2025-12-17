@@ -48,53 +48,7 @@ The `nipyapi` CLI already has full support for inheritance-aware parameter confi
 
 **Workaround:** Users can call `nipyapi ci configure_inherited_params` directly in their workflows.
 
-### Smart Flow Placement
-
-**Status:** Not started
-
-Add intelligent X/Y location calculation when deploying flows to avoid overlapping with existing process groups on the canvas.
-
 ## Medium-Term Features
-
-### Anthropic Skills Integration
-
-**Status:** Not started
-
-Create Anthropic-format skill definitions for Claude:
-
-```
-skills/
-├── deploy-flow/
-│   └── SKILL.md
-├── start-flow/
-│   └── SKILL.md
-└── ...
-```
-
-This would allow Claude to understand NiFi flow operations and help users build CI/CD pipelines.
-
-### MCP Server Adapter
-
-**Status:** Not started
-
-Implement an MCP (Model Context Protocol) server that exposes nipyapi operations as tools for AI assistants like Cursor:
-
-```python
-# adapters/mcp/server.py
-@server.call_tool()
-async def call_tool(name: str, arguments: dict):
-    if name == "deploy_flow":
-        result = nipyapi.ci.deploy_flow(**arguments)
-        return result
-```
-
-### OIDC Authentication Testing
-
-**Status:** Not started
-
-Test and document OIDC authentication against external NiFi clusters for enterprise deployments.
-
-## Long-Term Vision
 
 ### External Parameter Providers
 
@@ -120,10 +74,11 @@ Contributions toward any roadmap items are welcome. Please open an issue to disc
 
 ## Completed Milestones
 
-### v1.0 - Multi-Platform CI/CD (December 2024)
+### v1.0 - Multi-Platform CI/CD (December 2025)
 
 - GitHub Actions support (stable)
 - GitLab CI/CD support (stable)
 - CLI in nipyapi client (`nipyapi.ci` module)
 - GitHub and GitLab Flow Registry support
 - Comprehensive test coverage for all operations
+- Smart flow placement with intelligent X/Y location calculation to avoid overlapping process groups

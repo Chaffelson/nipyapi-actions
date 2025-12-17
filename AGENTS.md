@@ -59,7 +59,7 @@ All operations are in `nipyapi.ci`:
 - `stop_flow` - Stop processors and disable controllers
 - `get_status` - Get comprehensive status information
 - `configure_params` - Set parameter values
-- `change_version` - Change to specific version or latest
+- `change_flow_version` - Change to specific version or latest
 - `revert_flow` - Revert uncommitted local changes
 - `cleanup` - Stop and delete process group
 

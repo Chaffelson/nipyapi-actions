@@ -86,7 +86,7 @@
   # Inputs: NIFI_PROCESS_GROUP_ID, NIFI_TARGET_VERSION (optional)
   # Outputs: PREVIOUS_VERSION, NEW_VERSION, VERSION_STATE
   change-version:
-    - nipyapi ci change_version | tee -a outputs.env
+    - nipyapi ci change_flow_version | tee -a outputs.env
 
   # revert-flow: Revert uncommitted local changes
   # Inputs: NIFI_PROCESS_GROUP_ID

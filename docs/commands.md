@@ -407,7 +407,7 @@ Changes the version of an already-deployed Process Group to a specified version 
 ```yaml
 change-version:
   script:
-    - nipyapi ci change_version | tee -a outputs.env
+    - nipyapi ci change_flow_version | tee -a outputs.env
   variables:
     NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
     NIFI_TARGET_VERSION: v1.0.0  # omit for latest

@@ -211,7 +211,7 @@ test-nifi-operations:
       # Test: change-version (to v1.0.0)
       echo "--- change-version (v1.0.0) ---"
       export NIFI_TARGET_VERSION="v1.0.0"
-      nipyapi ci change_version | tee -a outputs.env
+      nipyapi ci change_flow_version | tee -a outputs.env
       export $(grep -v '^#' outputs.env | xargs)
       if [ "$NEW_VERSION" = "97549b88f2e1fb1dccddef57335e94628c74060b" ]; then
         echo "SUCCESS: Version changed to v1.0.0"
@@ -222,7 +222,7 @@ test-nifi-operations:
       # Test: change-version (to latest)
       echo "--- change-version (latest) ---"
       unset NIFI_TARGET_VERSION
-      nipyapi ci change_version | tee -a outputs.env
+      nipyapi ci change_flow_version | tee -a outputs.env
 
       # Test: modify-processor (create LOCALLY_MODIFIED state for revert test)
       # Uses inline Python since this is test scaffolding, not a real CI operation

@@ -226,7 +226,7 @@ runs:
           stop-flow)        CMD="stop_flow" ;;
           get-status)       CMD="get_status" ;;
           configure-params) CMD="configure_params" ;;
-          change-version)   CMD="change_version" ;;
+          change-version)   CMD="change_flow_version" ;;
           revert-flow)      CMD="revert_flow" ;;
           cleanup)          CMD="cleanup" ;;
           purge-flowfiles)  CMD="purge_flowfiles" ;;
