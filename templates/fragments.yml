@@ -38,7 +38,7 @@
 
   # Load outputs from previous command into environment
   load-outputs:
-    - export $(grep -v '^#' outputs.env | xargs)
+    - set -a; source outputs.env; set +a
 
   # ensure-registry: Create/update registry client
   # Inputs: NIFI_REGISTRY_REPO, GH_REGISTRY_TOKEN or GL_REGISTRY_TOKEN
@@ -119,3 +119,21 @@
   # Outputs: PROCESS_GROUP_ID, PROCESS_GROUP_NAME, PURGED, CONNECTIONS_PURGED, FLOWFILES_BEFORE, FLOWFILES_AFTER
   purge-flowfiles:
     - nipyapi ci purge_flowfiles | tee -a outputs.env
+
+  # =============================================================================
+  # Flow Definition Export/Import (No Version Control Required)
+  # =============================================================================
+
+  # export-flow-definition: Export flow to a JSON file
+  # Useful for backups, migrations, or sharing flows without a registry
+  # Inputs: NIFI_PROCESS_GROUP_ID, NIFI_EXPORT_FILE_PATH (optional)
+  # Outputs: PROCESS_GROUP_ID, PROCESS_GROUP_NAME, FILE_PATH, FORMAT
+  export-flow-definition:
+    - nipyapi ci export_flow_definition | tee -a outputs.env
+
+  # import-flow-definition: Import flow from a JSON file
+  # Creates a new process group from the exported definition
+  # Inputs: NIFI_FLOW_FILE_PATH or NIFI_FLOW_DEFINITION, NIFI_PARENT_ID (optional)
+  # Outputs: PROCESS_GROUP_ID, PROCESS_GROUP_NAME, PARENT_ID, SOURCE
+  import-flow-definition:
+    - nipyapi ci import_flow_definition | tee -a outputs.env

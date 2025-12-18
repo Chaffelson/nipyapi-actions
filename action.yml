@@ -4,7 +4,7 @@ author: 'Chaffelson'
 
 inputs:
   command:
-    description: 'Command: ensure-registry, deploy-flow, start-flow, stop-flow, cleanup, configure-params, get-status, change-version, revert-flow, purge-flowfiles'
+    description: 'Command: ensure-registry, deploy-flow, start-flow, stop-flow, cleanup, configure-params, get-status, change-version, revert-flow, purge-flowfiles, export-flow-definition, import-flow-definition'
     required: true
 
   # NiFi Connection
@@ -85,6 +85,20 @@ inputs:
     description: 'Log level: ERROR, WARNING (default), INFO, DEBUG'
     required: false
     default: 'WARNING'
+
+  # Export/Import flow definition
+  file-path:
+    description: 'File path for export/import operations'
+    required: false
+    default: ''
+  parent-id:
+    description: 'Parent process group ID for import operations'
+    required: false
+    default: ''
+  export-mode:
+    description: 'Export format: json or yaml'
+    required: false
+    default: 'json'
 
   # Stop/Cleanup options (safe defaults - explicit opt-in for destructive operations)
   disable-controllers:
@@ -178,6 +192,22 @@ outputs:
     description: 'Name of the deleted process group'
     value: ${{ steps.run.outputs['deleted-name'] }}
 
+  # export-flow-definition outputs
+  file-path:
+    description: 'Path to exported file'
+    value: ${{ steps.run.outputs['file-path'] }}
+  format:
+    description: 'Export format (json/yaml)'
+    value: ${{ steps.run.outputs.format }}
+
+  # import-flow-definition outputs
+  source:
+    description: 'Source of import (file/string)'
+    value: ${{ steps.run.outputs.source }}
+  parent-id:
+    description: 'Parent process group ID'
+    value: ${{ steps.run.outputs['parent-id'] }}
+
   # Common output
   success:
     description: 'Whether the command succeeded'
@@ -215,6 +245,11 @@ runs:
         NIFI_DISABLE_CONTROLLERS: ${{ inputs.disable-controllers }}
         NIFI_DELETE_PARAMETER_CONTEXT: ${{ inputs.delete-parameter-context }}
         NIFI_FORCE_DELETE: ${{ inputs.force }}
+        # Export/Import options
+        NIFI_EXPORT_FILE_PATH: ${{ inputs.file-path }}
+        NIFI_FLOW_FILE_PATH: ${{ inputs.file-path }}
+        NIFI_PARENT_ID: ${{ inputs.parent-id }}
+        NIFI_EXPORT_MODE: ${{ inputs.export-mode }}
       run: |
         set -e
 
@@ -230,6 +265,8 @@ runs:
           revert-flow)      CMD="revert_flow" ;;
           cleanup)          CMD="cleanup" ;;
           purge-flowfiles)  CMD="purge_flowfiles" ;;
+          export-flow-definition) CMD="export_flow_definition" ;;
+          import-flow-definition) CMD="import_flow_definition" ;;
           *)
             echo "Unknown command: ${{ inputs.command }}"
             exit 1

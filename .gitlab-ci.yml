@@ -184,14 +184,14 @@ test-nifi-operations:
       # Test: ensure-registry
       echo "--- ensure-registry ---"
       nipyapi ci ensure_registry | tee outputs.env
-      export $(grep -v '^#' outputs.env | xargs)
+      set -a; source outputs.env; set +a
       echo "Registry Client ID: $REGISTRY_CLIENT_ID"
 
       # Test: deploy-flow
       echo "--- deploy-flow ---"
       export NIFI_REGISTRY_CLIENT_ID=$REGISTRY_CLIENT_ID
       nipyapi ci deploy_flow | tee -a outputs.env
-      export $(grep -v '^#' outputs.env | xargs)
+      set -a; source outputs.env; set +a
       echo "Process Group ID: $PROCESS_GROUP_ID"
 
       # Test: start-flow
@@ -212,7 +212,7 @@ test-nifi-operations:
       echo "--- change-version (v1.0.0) ---"
       export NIFI_TARGET_VERSION="v1.0.0"
       nipyapi ci change_flow_version | tee -a outputs.env
-      export $(grep -v '^#' outputs.env | xargs)
+      set -a; source outputs.env; set +a
       if [ "$NEW_VERSION" = "97549b88f2e1fb1dccddef57335e94628c74060b" ]; then
         echo "SUCCESS: Version changed to v1.0.0"
       else
@@ -239,7 +239,7 @@ test-nifi-operations:
       # Test: get-status (verify LOCALLY_MODIFIED)
       echo "--- get-status (verify LOCALLY_MODIFIED) ---"
       nipyapi ci get_status | tee -a outputs.env
-      export $(grep -v '^#' outputs.env | xargs)
+      set -a; source outputs.env; set +a
       if [ "$VERSION_STATE" = "LOCALLY_MODIFIED" ]; then
         echo "SUCCESS: Flow is LOCALLY_MODIFIED"
       else
@@ -250,13 +250,36 @@ test-nifi-operations:
       # Test: revert-flow
       echo "--- revert-flow ---"
       nipyapi ci revert_flow | tee -a outputs.env
-      export $(grep -v '^#' outputs.env | xargs)
+      set -a; source outputs.env; set +a
       if [ "$STATE" = "UP_TO_DATE" ]; then
         echo "SUCCESS: Flow reverted to UP_TO_DATE"
       else
         echo "ERROR: Expected UP_TO_DATE, got $STATE"
         exit 1
       fi
+
+      # Test: export-flow-definition (without version control)
+      echo "--- export-flow-definition ---"
+      nipyapi ci export_flow_definition --file_path flow-backup.json | tee -a outputs.env
+      set -a; source outputs.env; set +a
+      if [ -f "flow-backup.json" ]; then
+        echo "SUCCESS: Flow exported to flow-backup.json ($(wc -c < flow-backup.json) bytes)"
+      else
+        echo "ERROR: Flow export file not created"
+        exit 1
+      fi
+
+      # Test: import-flow-definition (without version control)
+      echo "--- import-flow-definition ---"
+      IMPORTED_PG_ID=$(nipyapi ci import_flow_definition --file_path flow-backup.json | tee -a outputs.env | grep PROCESS_GROUP_ID | cut -d= -f2)
+      echo "Imported as: $IMPORTED_PG_ID"
+
+      # Cleanup the imported copy
+      echo "--- cleanup imported copy ---"
+      export NIFI_PROCESS_GROUP_ID_BACKUP=$NIFI_PROCESS_GROUP_ID
+      export NIFI_PROCESS_GROUP_ID=$IMPORTED_PG_ID
+      nipyapi ci cleanup --force | tee -a outputs.env
+      export NIFI_PROCESS_GROUP_ID=$NIFI_PROCESS_GROUP_ID_BACKUP
 
       # Test: stop-flow (with disable_controllers for cleanup)
       echo "--- stop-flow ---"
@@ -265,7 +288,7 @@ test-nifi-operations:
       # Test: purge-flowfiles
       echo "--- purge-flowfiles ---"
       nipyapi ci purge_flowfiles | tee -a outputs.env
-      export $(grep -v '^#' outputs.env | xargs)
+      set -a; source outputs.env; set +a
       if [ "$PURGED" = "true" ]; then
         echo "SUCCESS: FlowFiles purged"
       else
