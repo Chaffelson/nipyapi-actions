@@ -46,3 +46,9 @@ gitlablogs.txt
 
 # Local files
 PR_DESCRIPTION.md
+
+# virtual environments
+.venv
+.venv/
+venv/
+ENV/
