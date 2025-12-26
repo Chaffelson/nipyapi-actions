@@ -30,6 +30,9 @@ Automates testing and deployment of Apache NiFi flows using Git as the source of
 | `cleanup` | Delete a Process Group |
 | `configure-params` | Set parameter values |
 | `get-status` | Get comprehensive status |
+| `list-registry-flows` | List flows available in a registry bucket |
+| `get-versions` | List available versions for a deployed flow |
+| `get-diff` | Check for local modifications before promotion |
 
 ## Quick Start
 

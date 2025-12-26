@@ -137,3 +137,34 @@
   # Outputs: PROCESS_GROUP_ID, PROCESS_GROUP_NAME, PARENT_ID, SOURCE
   import-flow-definition:
     - nipyapi ci import_flow_definition | tee -a outputs.env
+
+  # =============================================================================
+  # Discovery and Version Management
+  # =============================================================================
+
+  # list-registry-flows: List flows available in a registry bucket
+  # Useful for discovering what flows can be deployed
+  # Inputs: NIFI_REGISTRY_CLIENT_ID, NIFI_BUCKET, NIFI_FLOW_BRANCH (optional)
+  # Outputs: REGISTRY_CLIENT_ID, REGISTRY_CLIENT_NAME, BUCKET, FLOW_COUNT, FLOWS
+  list-registry-flows:
+    - nipyapi ci list_registry_flows | tee -a outputs.env
+
+  # list-registry-flows-detailed: List flows with full metadata
+  # Inputs: NIFI_REGISTRY_CLIENT_ID, NIFI_BUCKET, NIFI_FLOW_BRANCH (optional)
+  # Outputs: REGISTRY_CLIENT_ID, REGISTRY_CLIENT_NAME, BUCKET, FLOW_COUNT, FLOWS
+  list-registry-flows-detailed:
+    - nipyapi ci list_registry_flows --detailed | tee -a outputs.env
+
+  # get-versions: List available versions for a deployed flow
+  # Useful for promotion decisions and rollback planning
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: FLOW_ID, BUCKET_ID, CURRENT_VERSION, VERSION_COUNT, VERSIONS
+  get-versions:
+    - nipyapi ci get_flow_versions | tee -a outputs.env
+
+  # get-diff: Check for local modifications to a versioned flow
+  # Use before promotion to detect uncommitted changes that would block upgrade
+  # Inputs: NIFI_PROCESS_GROUP_ID
+  # Outputs: PROCESS_GROUP_ID, PROCESS_GROUP_NAME, STATE, MODIFICATION_COUNT, MODIFICATIONS
+  get-diff:
+    - nipyapi ci get_flow_diff | tee -a outputs.env

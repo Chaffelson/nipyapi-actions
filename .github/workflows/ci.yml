@@ -70,6 +70,29 @@ jobs:
             exit 1
           fi
 
+      # Test: List Registry Flows
+      - name: Test list-registry-flows
+        uses: ./
+        id: list-flows
+        with:
+          command: list-registry-flows
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
+          bucket: flows
+
+      - name: Verify list-registry-flows output
+        run: |
+          echo "Flow count: ${{ steps.list-flows.outputs.flow-count }}"
+          echo "Flows: ${{ steps.list-flows.outputs.flows }}"
+          if [ -z "${{ steps.list-flows.outputs.flow-count }}" ] || [ "${{ steps.list-flows.outputs.flow-count }}" = "0" ]; then
+            echo "ERROR: Expected at least one flow"
+            exit 1
+          fi
+          echo "SUCCESS: Found ${{ steps.list-flows.outputs.flow-count }} flow(s)"
+
       # Test: Deploy Flow
       - name: Test deploy-flow
         uses: ./
@@ -92,6 +115,55 @@ jobs:
             echo "ERROR: process-group-id not set"
             exit 1
           fi
+
+      # Test: Get Versions
+      - name: Test get-versions
+        uses: ./
+        id: versions
+        with:
+          command: get-versions
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify get-versions output
+        run: |
+          echo "Current Version: ${{ steps.versions.outputs.current-version }}"
+          echo "Version Count: ${{ steps.versions.outputs.version-count }}"
+          echo "Flow ID: ${{ steps.versions.outputs.flow-id }}"
+          if [ -z "${{ steps.versions.outputs.version-count }}" ] || [ "${{ steps.versions.outputs.version-count }}" = "0" ]; then
+            echo "ERROR: Expected at least one version"
+            exit 1
+          fi
+          echo "SUCCESS: Found ${{ steps.versions.outputs.version-count }} version(s)"
+
+      # Test: Get Diff (should be UP_TO_DATE after fresh deploy)
+      - name: Test get-diff (clean state)
+        uses: ./
+        id: diff
+        with:
+          command: get-diff
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify get-diff output
+        run: |
+          echo "State: ${{ steps.diff.outputs.state }}"
+          echo "Modification Count: ${{ steps.diff.outputs.modification-count }}"
+          if [ "${{ steps.diff.outputs.state }}" != "UP_TO_DATE" ]; then
+            echo "ERROR: Expected UP_TO_DATE state after fresh deploy"
+            exit 1
+          fi
+          if [ "${{ steps.diff.outputs.modification-count }}" != "0" ]; then
+            echo "ERROR: Expected 0 modifications after fresh deploy"
+            exit 1
+          fi
+          echo "SUCCESS: Flow is UP_TO_DATE with 0 modifications"
 
       # Test: Start Flow
       - name: Test start-flow
@@ -278,6 +350,32 @@ jobs:
             exit 1
           fi
           echo "SUCCESS: Flow is LOCALLY_MODIFIED"
+
+      # Test: Get Diff (should show modifications after structural change)
+      - name: Test get-diff (with modifications)
+        uses: ./
+        id: diff-modified
+        with:
+          command: get-diff
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify get-diff detects modifications
+        run: |
+          echo "State: ${{ steps.diff-modified.outputs.state }}"
+          echo "Modification Count: ${{ steps.diff-modified.outputs.modification-count }}"
+          if [ "${{ steps.diff-modified.outputs.state }}" != "LOCALLY_MODIFIED" ]; then
+            echo "ERROR: Expected LOCALLY_MODIFIED state"
+            exit 1
+          fi
+          if [ "${{ steps.diff-modified.outputs.modification-count }}" = "0" ]; then
+            echo "ERROR: Expected modifications to be detected"
+            exit 1
+          fi
+          echo "SUCCESS: get-diff detected ${{ steps.diff-modified.outputs.modification-count }} modification(s)"
 
       - name: Test revert-flow
         uses: ./

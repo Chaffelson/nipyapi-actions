@@ -187,12 +187,33 @@ test-nifi-operations:
       set -a; source outputs.env; set +a
       echo "Registry Client ID: $REGISTRY_CLIENT_ID"
 
+      # Test: list-registry-flows
+      echo "--- list-registry-flows ---"
+      export NIFI_REGISTRY_CLIENT_ID=$REGISTRY_CLIENT_ID
+      nipyapi ci list_registry_flows | tee -a outputs.env
+      set -a; source outputs.env; set +a
+      echo "Flow count: $FLOW_COUNT"
+      if [ -z "$FLOW_COUNT" ] || [ "$FLOW_COUNT" = "0" ]; then
+        echo "ERROR: Expected at least one flow in registry"
+        exit 1
+      fi
+
       # Test: deploy-flow
       echo "--- deploy-flow ---"
-      export NIFI_REGISTRY_CLIENT_ID=$REGISTRY_CLIENT_ID
       nipyapi ci deploy_flow | tee -a outputs.env
       set -a; source outputs.env; set +a
       echo "Process Group ID: $PROCESS_GROUP_ID"
+
+      # Test: get-flow-versions
+      echo "--- get-flow-versions ---"
+      export NIFI_PROCESS_GROUP_ID=$PROCESS_GROUP_ID
+      nipyapi ci get_flow_versions | tee -a outputs.env
+      set -a; source outputs.env; set +a
+      echo "Version count: $VERSION_COUNT"
+      if [ -z "$VERSION_COUNT" ] || [ "$VERSION_COUNT" = "0" ]; then
+        echo "ERROR: Expected at least one version"
+        exit 1
+      fi
 
       # Test: start-flow
       echo "--- start-flow ---"
@@ -235,6 +256,21 @@ test-nifi-operations:
       nipyapi.canvas.update_processor(p, name=p.component.name + '-modified', auto_stop=True)
       print('Modified processor:', p.component.name)
       "
+
+      # Test: get-flow-diff (with modifications)
+      echo "--- get-flow-diff ---"
+      nipyapi ci get_flow_diff | tee -a outputs.env
+      set -a; source outputs.env; set +a
+      echo "State: $STATE, Modification count: $MODIFICATION_COUNT"
+      if [ "$STATE" != "LOCALLY_MODIFIED" ]; then
+        echo "ERROR: Expected LOCALLY_MODIFIED, got $STATE"
+        exit 1
+      fi
+      if [ -z "$MODIFICATION_COUNT" ] || [ "$MODIFICATION_COUNT" = "0" ]; then
+        echo "ERROR: Expected modifications to be detected"
+        exit 1
+      fi
+      echo "SUCCESS: get-flow-diff detected $MODIFICATION_COUNT modification(s)"
 
       # Test: get-status (verify LOCALLY_MODIFIED)
       echo "--- get-status (verify LOCALLY_MODIFIED) ---"

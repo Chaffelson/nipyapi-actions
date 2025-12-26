@@ -189,8 +189,8 @@ wheels = [
 
 [[package]]
 name = "nipyapi"
-version = "1.1.1.dev13+g0c4daebed"
-source = { git = "https://github.com/Chaffelson/nipyapi.git?rev=feature%2Fcli#0c4daebedb7052db0dd9ea4948f526ecd0bce6d3" }
+version = "1.1.1.dev19+g6de3105db"
+source = { git = "https://github.com/Chaffelson/nipyapi.git?rev=feature%2Fcli#6de3105dbc660c378f80aa1e5212a8c90482110e" }
 dependencies = [
     { name = "certifi" },
     { name = "packaging" },

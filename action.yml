@@ -4,7 +4,7 @@ author: 'Chaffelson'
 
 inputs:
   command:
-    description: 'Command: ensure-registry, deploy-flow, start-flow, stop-flow, cleanup, configure-params, get-status, change-version, revert-flow, purge-flowfiles, export-flow-definition, import-flow-definition'
+    description: 'Command: ensure-registry, deploy-flow, start-flow, stop-flow, cleanup, configure-params, get-status, change-version, revert-flow, purge-flowfiles, export-flow-definition, import-flow-definition, list-registry-flows, get-versions, get-diff'
     required: true
 
   # NiFi Connection
@@ -99,6 +99,12 @@ inputs:
     description: 'Export format: json or yaml'
     required: false
     default: 'json'
+
+  # List registry flows options
+  detailed:
+    description: 'Include full details in list-registry-flows output'
+    required: false
+    default: 'false'
 
   # Stop/Cleanup options (safe defaults - explicit opt-in for destructive operations)
   disable-controllers:
@@ -208,6 +214,33 @@ outputs:
     description: 'Parent process group ID'
     value: ${{ steps.run.outputs['parent-id'] }}
 
+  # list-registry-flows outputs
+  flow-count:
+    description: 'Number of flows found in bucket'
+    value: ${{ steps.run.outputs['flow-count'] }}
+  flows:
+    description: 'JSON array of flow information'
+    value: ${{ steps.run.outputs.flows }}
+
+  # get-versions outputs
+  current-version:
+    description: 'Currently deployed version'
+    value: ${{ steps.run.outputs['current-version'] }}
+  version-count:
+    description: 'Number of versions available'
+    value: ${{ steps.run.outputs['version-count'] }}
+  versions:
+    description: 'JSON array of version metadata'
+    value: ${{ steps.run.outputs.versions }}
+
+  # get-diff outputs
+  modification-count:
+    description: 'Number of modified components'
+    value: ${{ steps.run.outputs['modification-count'] }}
+  modifications:
+    description: 'JSON array of modification details'
+    value: ${{ steps.run.outputs.modifications }}
+
   # Common output
   success:
     description: 'Whether the command succeeded'
@@ -250,6 +283,8 @@ runs:
         NIFI_FLOW_FILE_PATH: ${{ inputs.file-path }}
         NIFI_PARENT_ID: ${{ inputs.parent-id }}
         NIFI_EXPORT_MODE: ${{ inputs.export-mode }}
+        # List registry flows options
+        NIFI_DETAILED: ${{ inputs.detailed }}
       run: |
         set -e
 
@@ -267,6 +302,9 @@ runs:
           purge-flowfiles)  CMD="purge_flowfiles" ;;
           export-flow-definition) CMD="export_flow_definition" ;;
           import-flow-definition) CMD="import_flow_definition" ;;
+          list-registry-flows)    CMD="list_registry_flows" ;;
+          get-versions)           CMD="get_flow_versions" ;;
+          get-diff)               CMD="get_flow_diff" ;;
           *)
             echo "Unknown command: ${{ inputs.command }}"
             exit 1

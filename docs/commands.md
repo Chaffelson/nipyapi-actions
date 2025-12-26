@@ -693,9 +693,264 @@ get-status:
 
 ---
 
+## list-registry-flows
+
+List flows available in a Git registry bucket.
+
+### Description
+
+Queries a Git-based Flow Registry to list available flows within a bucket. Useful for discovering what flows can be deployed before running `deploy-flow`.
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `registry-client-id` | Yes | | Registry client ID (from `ensure-registry`) |
+| `bucket` | Yes | | Bucket (folder) to list flows from |
+| `branch` | No | _default_ | Branch to query |
+| `detailed` | No | `false` | Include descriptions and comments |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `registry-client-id` | Registry client ID used |
+| `registry-client-name` | Registry client name |
+| `bucket` | Bucket queried |
+| `flow-count` | Number of flows found |
+| `flows` | JSON array of flow info (name, flow_id) |
+| `success` | `true` if successful |
+
+### Example
+
+**GitHub Actions:**
+```yaml
+- uses: Chaffelson/nipyapi-actions@main
+  id: list-flows
+  with:
+    command: list-registry-flows
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
+    registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
+    bucket: flows
+```
+
+**GitLab CI:**
+```yaml
+list-registry-flows:
+  script:
+    - nipyapi ci list_registry_flows | tee -a outputs.env
+  variables:
+    NIFI_REGISTRY_CLIENT_ID: $REGISTRY_CLIENT_ID
+    NIFI_BUCKET: flows
+```
+
+---
+
+## get-versions
+
+List available versions for a deployed flow.
+
+### Description
+
+Returns the version history of a deployed, version-controlled Process Group. Use this to see what versions are available for promotion, rollback, or to verify the current deployed version.
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `process-group-id` | Yes | | Process Group ID |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `flow-id` | Flow identifier in registry |
+| `bucket-id` | Bucket containing the flow |
+| `registry-id` | Registry client ID |
+| `current-version` | Currently deployed version |
+| `state` | Version control state |
+| `version-count` | Number of versions available |
+| `versions` | JSON array of version metadata |
+| `success` | `true` if successful |
+
+### Example
+
+**GitHub Actions:**
+```yaml
+- uses: Chaffelson/nipyapi-actions@main
+  id: versions
+  with:
+    command: get-versions
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
+    process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+**GitLab CI:**
+```yaml
+get-versions:
+  script:
+    - nipyapi ci get_flow_versions | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+```
+
+### Notes
+
+- The `versions` output contains commit SHA, author, timestamp, and comments for each version
+- Use with `change-version` to switch to a specific version
+
+---
+
+## get-diff
+
+Check for local modifications to a versioned flow.
+
+### Description
+
+Returns details about any local (uncommitted) changes made to a version-controlled Process Group. Use this before promotion to detect modifications that would block a version upgrade.
+
+This is particularly important in environments where someone may have made emergency changes that weren't committed back to the registry.
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `process-group-id` | Yes | | Process Group ID |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `process-group-id` | Process Group ID |
+| `process-group-name` | Process Group name |
+| `flow-id` | Flow ID in registry |
+| `current-version` | Current committed version |
+| `state` | Version control state (`UP_TO_DATE`, `LOCALLY_MODIFIED`, etc.) |
+| `modification-count` | Number of modified components |
+| `modifications` | JSON array of modification details |
+| `success` | `true` if successful |
+
+### Example
+
+**GitHub Actions:**
+```yaml
+- uses: Chaffelson/nipyapi-actions@main
+  id: diff
+  with:
+    command: get-diff
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
+    process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+- name: Check for modifications
+  if: steps.diff.outputs.modification-count != '0'
+  run: |
+    echo "WARNING: Flow has ${{ steps.diff.outputs.modification-count }} local modifications"
+    echo "Consider reverting before upgrade: use revert-flow command"
+```
+
+**GitLab CI:**
+```yaml
+get-diff:
+  script:
+    - nipyapi ci get_flow_diff | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+
+check-modifications:
+  script:
+    - |
+      if [ "$MODIFICATION_COUNT" != "0" ]; then
+        echo "WARNING: Flow has local modifications - review before promotion"
+        exit 1
+      fi
+```
+
+### Notes
+
+- If `modification-count` is 0 and `state` is `UP_TO_DATE`, the flow matches the registry version
+- Use `revert-flow` to discard local modifications before upgrading
+- The `modifications` array shows exactly what changed (component, type, description)
+
+---
+
+## Additional CLI Functions
+
+The `nipyapi` CLI provides additional functions that may be useful for advanced CI/CD workflows. These are not included in the example action implementations above, but are available via direct CLI usage.
+
+### Discovery and Audit
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `list_flows` | `nipyapi ci list_flows` | List Process Groups deployed on the NiFi canvas |
+
+**Example:**
+```bash
+# List all flows on canvas
+nipyapi ci list_flows
+
+# Use in GitLab CI
+nipyapi ci list_flows | tee -a outputs.env
+```
+
+### GitOps / Development Workflows
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `commit_flow` | `nipyapi ci commit_flow` | Commit local changes back to Git registry |
+| `detach_flow` | `nipyapi ci detach_flow` | Remove version control from a Process Group |
+
+**Example:**
+```bash
+# Commit local modifications to registry
+nipyapi ci commit_flow --process_group_id <pg-id> --comment "Updated processor config"
+
+# Detach from version control (fork a flow)
+nipyapi ci detach_flow --process_group_id <pg-id>
+```
+
+> **Note**: These are typically used in development workflows rather than production CI/CD pipelines. See the [nipyapi documentation](https://nipyapi.readthedocs.io/) for full details.
+
+### Parameter Management
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `configure_inherited_params` | `nipyapi ci configure_inherited_params` | Set values in inherited parameter contexts |
+| `upload_asset` | `nipyapi ci upload_asset` | Upload a file as a parameter asset |
+
+**Example:**
+```bash
+# Set inherited parameter values (useful for OpenFlow connectors)
+nipyapi ci configure_inherited_params --process_group_id <pg-id> \
+  --parameters '{"parent_param": "value"}'
+
+# Upload a certificate as a parameter asset
+nipyapi ci upload_asset --context_id <ctx-id> --parameter_name "ssl_cert" \
+  --file_path /path/to/cert.pem
+```
+
+### Version Resolution
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `resolve_git_ref` | `nipyapi ci resolve_git_ref` | Resolve a Git tag or ref to a commit SHA |
+
+**Example:**
+```bash
+# Resolve a tag to its commit SHA
+nipyapi ci resolve_git_ref --process_group_id <pg-id> --ref "v1.0.0"
+```
+
+> **Note**: Useful for tag-based release workflows where you need to convert a semantic version tag to the actual commit identifier.
+
+---
+
 ## See Also
 
 - [GitHub Actions Guide](github-actions.md) - GitHub Actions setup
 - [GitLab CI Guide](gitlab-ci.md) - GitLab CI setup
 - [Security Guide](security.md) - Authentication and secrets
 - [How It Works](how-it-works.md) - Architecture overview
+- [nipyapi Documentation](https://nipyapi.readthedocs.io/) - Full client documentation
