@@ -945,6 +945,57 @@ nipyapi ci resolve_git_ref --process_group_id <pg-id> --ref "v1.0.0"
 
 > **Note**: Useful for tag-based release workflows where you need to convert a semantic version tag to the actual commit identifier.
 
+### Bulletin Management (NiFi 2.7.0+)
+
+The `nipyapi bulletins` module provides functions for monitoring and clearing bulletins.
+These are useful for debugging flows during development and validating test runs in CI.
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `get_bulletins` | `nipyapi bulletins get_bulletins` | Get flow controller bulletins |
+| `get_bulletin_board` | `nipyapi bulletins get_bulletin_board` | Get filtered bulletins with search options |
+| `clear_all_bulletins` | `nipyapi bulletins clear_all_bulletins` | Clear all bulletins from a process group |
+
+**Example - Check for errors after test run:**
+```bash
+# Get all bulletins from a specific process group (useful after deploy/start)
+nipyapi bulletins get_bulletin_board --pg_id <pg-id>
+
+# Filter bulletins by processor name
+nipyapi bulletins get_bulletin_board --pg_id <pg-id> --source_name ".*MyProcessor.*"
+
+# Filter by message content (e.g., find errors)
+nipyapi bulletins get_bulletin_board --pg_id <pg-id> --message ".*error.*"
+```
+
+**Example - Clean state between tests:**
+```bash
+# Clear all bulletins before/after test runs
+nipyapi bulletins clear_all_bulletins --pg_id <pg-id>
+
+# Clear all bulletins from root
+nipyapi bulletins clear_all_bulletins
+```
+
+**GitLab CI Example - Validate no errors after test:**
+```yaml
+validate-flow:
+  script:
+    - nipyapi ci start_flow
+    - sleep 10  # Let flow run
+    - |
+      BULLETINS=$(nipyapi bulletins get_bulletin_board --pg_id $PROCESS_GROUP_ID)
+      if echo "$BULLETINS" | grep -q "ERROR"; then
+        echo "Flow produced errors:"
+        echo "$BULLETINS"
+        exit 1
+      fi
+```
+
+> **Note**: Bulletin clearing requires NiFi 2.7.0 or later. The `clear_all_bulletins`
+> function clears both process group component bulletins and controller service bulletins.
+> Flow controller bulletins (system-level) cannot be cleared via API.
+
 ---
 
 ## See Also
