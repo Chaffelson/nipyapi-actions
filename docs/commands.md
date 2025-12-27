@@ -945,6 +945,51 @@ nipyapi ci resolve_git_ref --process_group_id <pg-id> --ref "v1.0.0"
 
 > **Note**: Useful for tag-based release workflows where you need to convert a semantic version tag to the actual commit identifier.
 
+### State Management
+
+The `nipyapi canvas` module provides commands for inspecting and clearing component state.
+Useful for resetting listing processors, debugging stateful flows, and test cleanup.
+
+| Command | Description |
+|---------|-------------|
+| `nipyapi canvas get_processor_state <id>` | Get state entries for a processor |
+| `nipyapi canvas clear_processor_state <id>` | Clear all state for a processor |
+| `nipyapi canvas get_controller_state <id>` | Get state entries for a controller service |
+| `nipyapi canvas clear_controller_state <id>` | Clear state for a controller (must be DISABLED) |
+
+**Example - Get processor state (ListFile, ListS3, etc.):**
+```bash
+nipyapi --profile <profile> canvas get_processor_state <processor-id>
+```
+
+Output:
+```json
+{
+  "component_state": {
+    "local_state": {
+      "total_entry_count": 3,
+      "state": [
+        {"key": "listing.timestamp", "value": "1735329600000"},
+        {"key": "processed.files", "value": "file1.txt,file2.txt"}
+      ]
+    }
+  }
+}
+```
+
+**Example - Clear processor state (reset to re-process files):**
+```bash
+nipyapi --profile <profile> canvas clear_processor_state <processor-id>
+```
+
+**Example - Get controller service state:**
+```bash
+nipyapi --profile <profile> canvas get_controller_state <controller-id>
+```
+
+> **Note**: Controller services must be DISABLED before their state can be cleared.
+> State may be in `local_state` (standalone) or `cluster_state` (clustered mode).
+
 ### Bulletin Management (NiFi 2.7.0+)
 
 The `nipyapi bulletins` module provides functions for monitoring and clearing bulletins.
