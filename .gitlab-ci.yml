@@ -296,10 +296,11 @@ test-nifi-operations:
 
       # Test: export-flow-definition (without version control)
       echo "--- export-flow-definition ---"
-      nipyapi ci export_flow_definition --file_path flow-backup.json | tee -a outputs.env
+      EXPORT_FILE="${TMPDIR:-/tmp}/flow-backup.json"
+      nipyapi ci export_flow_definition --file_path "$EXPORT_FILE" | tee -a outputs.env
       set -a; source outputs.env; set +a
-      if [ -f "flow-backup.json" ]; then
-        echo "SUCCESS: Flow exported to flow-backup.json ($(wc -c < flow-backup.json) bytes)"
+      if [ -f "$EXPORT_FILE" ]; then
+        echo "SUCCESS: Flow exported to $EXPORT_FILE ($(wc -c < "$EXPORT_FILE") bytes)"
       else
         echo "ERROR: Flow export file not created"
         exit 1
@@ -307,7 +308,7 @@ test-nifi-operations:
 
       # Test: import-flow-definition (without version control)
       echo "--- import-flow-definition ---"
-      IMPORTED_PG_ID=$(nipyapi ci import_flow_definition --file_path flow-backup.json | tee -a outputs.env | grep PROCESS_GROUP_ID | cut -d= -f2)
+      IMPORTED_PG_ID=$(nipyapi ci import_flow_definition --file_path "$EXPORT_FILE" | tee -a outputs.env | grep PROCESS_GROUP_ID | cut -d= -f2)
       echo "Imported as: $IMPORTED_PG_ID"
 
       # Cleanup the imported copy
