@@ -1,7 +1,7 @@
 {
   "externalControllerServices": {},
   "flowContents": {
-    "comments": "Version 2.0 - renamed to follow nipyapi_test convention",
+    "comments": "Version 2 - test update for version switching",
     "componentType": "PROCESS_GROUP",
     "connections": [
       {
@@ -11,16 +11,16 @@
         "componentType": "CONNECTION",
         "destination": {
           "comments": "",
-          "groupId": "37a03b54-97dd-3d98-8c50-1fd3433e5e9f",
+          "groupId": "25af61c5-494d-39e3-903b-6dfb3841af65",
           "id": "53433f28-542e-316f-ab1a-a3071d661241",
-          "instanceIdentifier": "f297f6a9-5482-3099-82b9-b40b3b33ac66",
+          "instanceIdentifier": "9206fc0d-3e5a-3e42-346c-d3a1189366fb",
           "name": "HandleHTTPResponse",
           "type": "PROCESSOR"
         },
         "flowFileExpiration": "0 sec",
-        "groupIdentifier": "37a03b54-97dd-3d98-8c50-1fd3433e5e9f",
+        "groupIdentifier": "25af61c5-494d-39e3-903b-6dfb3841af65",
         "identifier": "2e97ebb9-801a-3678-877c-ab57da6dc186",
-        "instanceIdentifier": "a76055b5-ea64-313d-105a-7ab3a50fdd9c",
+        "instanceIdentifier": "d086bb81-248b-3c6e-369f-4d273f827ef3",
         "labelIndex": 1,
         "loadBalanceCompression": "DO_NOT_COMPRESS",
         "loadBalanceStrategy": "DO_NOT_LOAD_BALANCE",
@@ -30,9 +30,9 @@
         ],
         "source": {
           "comments": "",
-          "groupId": "37a03b54-97dd-3d98-8c50-1fd3433e5e9f",
+          "groupId": "25af61c5-494d-39e3-903b-6dfb3841af65",
           "id": "dcc1c6b7-e9ee-3d00-9bec-e6e2507ae9fd",
-          "instanceIdentifier": "848ec908-2010-320f-1956-84a4c7ce1e3f",
+          "instanceIdentifier": "59347df3-4442-3f4f-f9bb-60be45f1c101",
           "name": "HandleHTTPRequest",
           "type": "PROCESSOR"
         },
@@ -59,9 +59,9 @@
             "type": "org.apache.nifi.http.HttpContextMap"
           }
         ],
-        "groupIdentifier": "37a03b54-97dd-3d98-8c50-1fd3433e5e9f",
+        "groupIdentifier": "25af61c5-494d-39e3-903b-6dfb3841af65",
         "identifier": "91dcc499-b059-31d8-9485-becec48d69de",
-        "instanceIdentifier": "7ff8ad33-c017-3103-f74b-ed476fe43deb",
+        "instanceIdentifier": "90313b56-ca71-3d0f-3623-22f7c99330fb",
         "name": "StandardHttpContextMap",
         "properties": {
           "Maximum Outstanding Requests": "5000",
@@ -94,17 +94,17 @@
     "flowFileConcurrency": "UNBOUNDED",
     "flowFileOutboundPolicy": "STREAM_WHEN_AVAILABLE",
     "funnels": [],
-    "identifier": "37a03b54-97dd-3d98-8c50-1fd3433e5e9f",
+    "identifier": "25af61c5-494d-39e3-903b-6dfb3841af65",
     "inputPorts": [],
-    "instanceIdentifier": "640b9aae-019b-1000-9d99-65dd0c03f582",
+    "instanceIdentifier": "643cdfdb-019b-1000-30ba-51ba3e568626",
     "labels": [],
     "maxConcurrentTasks": 1,
     "name": "nipyapi_test_cicd_demo",
     "outputPorts": [],
     "parameterContextName": "nipyapi_test_cicd_params",
     "position": {
-      "x": 100.0,
-      "y": 100.0
+      "x": 500.0,
+      "y": 500.0
     },
     "processGroups": [],
     "processors": [
@@ -121,9 +121,9 @@
         "componentType": "PROCESSOR",
         "concurrentlySchedulableTaskCount": 1,
         "executionNode": "ALL",
-        "groupIdentifier": "37a03b54-97dd-3d98-8c50-1fd3433e5e9f",
+        "groupIdentifier": "25af61c5-494d-39e3-903b-6dfb3841af65",
         "identifier": "dcc1c6b7-e9ee-3d00-9bec-e6e2507ae9fd",
-        "instanceIdentifier": "848ec908-2010-320f-1956-84a4c7ce1e3f",
+        "instanceIdentifier": "59347df3-4442-3f4f-f9bb-60be45f1c101",
         "maxBackoffPeriod": "10 mins",
         "name": "HandleHTTPRequest",
         "penaltyDuration": "30 sec",
@@ -336,9 +336,9 @@
         "componentType": "PROCESSOR",
         "concurrentlySchedulableTaskCount": 1,
         "executionNode": "ALL",
-        "groupIdentifier": "37a03b54-97dd-3d98-8c50-1fd3433e5e9f",
+        "groupIdentifier": "25af61c5-494d-39e3-903b-6dfb3841af65",
         "identifier": "53433f28-542e-316f-ab1a-a3071d661241",
-        "instanceIdentifier": "f297f6a9-5482-3099-82b9-b40b3b33ac66",
+        "instanceIdentifier": "9206fc0d-3e5a-3e42-346c-d3a1189366fb",
         "maxBackoffPeriod": "10 mins",
         "name": "HandleHTTPResponse",
         "penaltyDuration": "30 sec",
