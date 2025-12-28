@@ -183,7 +183,7 @@ def test_deploy_flow(github_token, output_file, registry_client_id):
         'NIFI_ACTION_COMMAND': 'deploy-flow',
         'NIFI_REGISTRY_CLIENT_ID': registry_client_id,
         'NIFI_BUCKET': 'flows',
-        'NIFI_FLOW': 'cicd-demo-flow',
+        'NIFI_FLOW': 'nipyapi_test_cicd_demo',
         'NIFI_FLOW_BRANCH': '',  # Use default
         'NIFI_FLOW_VERSION': '',  # Use latest
         'NIFI_PARENT_PG_ID': '',  # Use root
@@ -191,7 +191,7 @@ def test_deploy_flow(github_token, output_file, registry_client_id):
 
     print(f"Registry Client ID: {registry_client_id}")
     print(f"Bucket: flows (repository-path: tests)")
-    print(f"Flow: cicd-demo-flow")
+    print(f"Flow: nipyapi_test_cicd_demo")
     print()
 
     # Clear output file
@@ -564,17 +564,17 @@ def verify_cleanup(process_group_id):
     # Check parameter context no longer exists (may fail if shared across deployments)
     contexts = nipyapi.parameters.list_all_parameter_contexts()
     for ctx in contexts:
-        if ctx.component.name == 'cicd-demo-params':
+        if ctx.component.name == 'nipyapi_test_cicd_params':
             # Try to clean it up manually if cleanup failed
             try:
                 nipyapi.parameters.delete_parameter_context(ctx)
-                print("  Parameter context 'cicd-demo-params' manually removed")
+                print("  Parameter context 'nipyapi_test_cicd_params' manually removed")
             except Exception as e:
                 # May fail if still in use - not critical for test
                 print(f"  WARNING: Could not remove parameter context: {e}")
             break
     else:
-        print("  Parameter context 'cicd-demo-params' correctly removed")
+        print("  Parameter context 'nipyapi_test_cicd_params' correctly removed")
 
     print("verify-cleanup PASSED!")
 
@@ -596,11 +596,11 @@ def cleanup_stale_resources(github_token, output_file):
     # Configure nipyapi from environment (same as CI functions do)
     nipyapi.profiles.switch()
 
-    # Find and clean up any stale cicd-demo-flow
+    # Find and clean up any stale nipyapi_test_cicd_demo
     try:
         pgs = nipyapi.canvas.list_all_process_groups(nipyapi.canvas.get_root_pg_id())
         for pg in pgs:
-            if pg.component.name == 'cicd-demo-flow':
+            if pg.component.name == 'nipyapi_test_cicd_demo':
                 print(f"  Found stale PG: {pg.id}")
                 nipyapi.canvas.schedule_process_group(pg.id, scheduled=False)
                 try:
@@ -616,7 +616,7 @@ def cleanup_stale_resources(github_token, output_file):
     try:
         contexts = nipyapi.parameters.list_all_parameter_contexts()
         for ctx in contexts:
-            if ctx.component.name == 'cicd-demo-params':
+            if ctx.component.name == 'nipyapi_test_cicd_params':
                 nipyapi.parameters.delete_parameter_context(ctx)
                 print("  Deleted orphaned parameter context")
     except Exception as e:
