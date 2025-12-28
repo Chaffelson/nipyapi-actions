@@ -108,7 +108,7 @@ Example with `Repository Path: tests`:
 nipyapi-actions/
 └── tests/
     └── flows/             <-- Bucket named "flows"
-        └── cicd-demo-flow.json
+        └── nipyapi_test_cicd_demo.json
 ```
 
 ## Troubleshooting

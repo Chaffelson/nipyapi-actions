@@ -148,7 +148,7 @@ def test_deploy_flow(github_token, output_file, registry_client_id):
         'NIFI_ACTION_COMMAND': 'deploy-flow',
         'NIFI_REGISTRY_CLIENT_ID': registry_client_id,
         'NIFI_BUCKET': 'flows',
-        'NIFI_FLOW': 'cicd-demo-flow',
+        'NIFI_FLOW': 'nipyapi_test_cicd_demo',
         'NIFI_FLOW_BRANCH': '',  # Use default
         'NIFI_FLOW_VERSION': '',  # Use latest
         'NIFI_PARENT_PG_ID': '',  # Use root
@@ -156,7 +156,7 @@ def test_deploy_flow(github_token, output_file, registry_client_id):
 
     print(f"Registry Client ID: {registry_client_id}")
     print(f"Bucket: flows (repository-path: tests)")
-    print(f"Flow: cicd-demo-flow")
+    print(f"Flow: nipyapi_test_cicd_demo")
     print()
 
     # Clear output file
@@ -421,9 +421,9 @@ def verify_cleanup(process_group_id):
     # Check parameter context no longer exists
     contexts = nipyapi.parameters.list_all_parameter_contexts()
     for ctx in contexts:
-        if ctx.component.name == 'cicd-demo-params':
-            raise ValueError("Parameter context 'cicd-demo-params' still exists after cleanup!")
-    print("  Parameter context 'cicd-demo-params' correctly removed")
+        if ctx.component.name == 'nipyapi_test_cicd_params':
+            raise ValueError("Parameter context 'nipyapi_test_cicd_params' still exists after cleanup!")
+    print("  Parameter context 'nipyapi_test_cicd_params' correctly removed")
 
     print("verify-cleanup PASSED!")
 
