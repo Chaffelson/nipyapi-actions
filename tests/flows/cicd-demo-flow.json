@@ -1,7 +1,7 @@
 {
   "externalControllerServices": {},
   "flowContents": {
-    "comments": "",
+    "comments": "Version 2.0 - renamed to follow nipyapi_test convention",
     "componentType": "PROCESS_GROUP",
     "connections": [
       {
