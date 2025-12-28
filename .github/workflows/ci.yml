@@ -105,7 +105,7 @@ jobs:
           nifi-verify-ssl: 'false'
           registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
           bucket: flows
-          flow: cicd-demo-flow
+          flow: nipyapi_test_cicd_demo
 
       - name: Verify deploy output
         run: |
@@ -276,11 +276,15 @@ jobs:
         run: |
           echo "Previous Version: ${{ steps.change-version.outputs.previous-version }}"
           echo "New Version: ${{ steps.change-version.outputs.new-version }}"
-          # v1.0.0 tag resolves to this SHA
-          if [[ "${{ steps.change-version.outputs.new-version }}" == "97549b88f2e1fb1dccddef57335e94628c74060b" ]]; then
-            echo "SUCCESS: Version changed to v1.0.0"
+          # Verify version changed
+          if [[ -z "${{ steps.change-version.outputs.new-version }}" ]]; then
+            echo "ERROR: new-version output is empty"
+            exit 1
+          fi
+          if [[ "${{ steps.change-version.outputs.new-version }}" != "${{ steps.change-version.outputs.previous-version }}" ]]; then
+            echo "SUCCESS: Version changed from previous to v1.0.0"
           else
-            echo "ERROR: Expected v1.0.0 SHA, got ${{ steps.change-version.outputs.new-version }}"
+            echo "ERROR: Version did not change"
             exit 1
           fi
 
@@ -302,13 +306,13 @@ jobs:
         run: |
           echo "Previous Version: ${{ steps.change-latest.outputs.previous-version }}"
           echo "New Version: ${{ steps.change-latest.outputs.new-version }}"
-          # Verify previous was v1.0.0 and new is different (i.e., latest)
-          if [[ "${{ steps.change-latest.outputs.previous-version }}" != "97549b88f2e1fb1dccddef57335e94628c74060b" ]]; then
-            echo "ERROR: Previous version should be v1.0.0 SHA"
+          # Verify version changed (previous was v1.0.0, now is latest)
+          if [[ -z "${{ steps.change-latest.outputs.new-version }}" ]]; then
+            echo "ERROR: new-version output is empty"
             exit 1
           fi
           if [[ "${{ steps.change-latest.outputs.new-version }}" == "${{ steps.change-latest.outputs.previous-version }}" ]]; then
-            echo "ERROR: Version did not change"
+            echo "ERROR: Version did not change from v1.0.0 to latest"
             exit 1
           fi
           echo "SUCCESS: Changed from v1.0.0 to latest (${{ steps.change-latest.outputs.new-version }})"

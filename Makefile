@@ -185,7 +185,7 @@ gitlab-test-all: check-env check-infra
 		--variable NIFI_REGISTRY_CLIENT_NAME="gitlab-test-registry" \
 		--variable NIFI_REPOSITORY_PATH="tests" \
 		--variable NIFI_BUCKET="flows" \
-		--variable NIFI_FLOW="cicd-demo-flow"
+		--variable NIFI_FLOW="nipyapi_test_cicd_demo"
 
 # Run full pipeline with GitLab registry (convenience target)
 gitlab-test-gl: check-env check-infra

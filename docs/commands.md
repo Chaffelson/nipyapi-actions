@@ -917,15 +917,96 @@ nipyapi ci detach_flow --process_group_id <pg-id>
 
 | Function | CLI Command | Description |
 |----------|-------------|-------------|
+| `export_parameters` | `nipyapi ci export_parameters` | Export parameters from a context hierarchy |
 | `configure_inherited_params` | `nipyapi ci configure_inherited_params` | Set values in inherited parameter contexts |
 | `upload_asset` | `nipyapi ci upload_asset` | Upload a file as a parameter asset |
 
-**Example:**
-```bash
-# Set inherited parameter values (useful for OpenFlow connectors)
-nipyapi ci configure_inherited_params --process_group_id <pg-id> \
-  --parameters '{"parent_param": "value"}'
+#### Export Parameters
 
+Export parameters from a parameter context for backup or migration. Exports all parameter names and values (sensitive values are null but keys are preserved).
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `context-id` | one-of | | Parameter context ID to export |
+| `process-group-id` | one-of | | Resolve context from this process group |
+| `file-path` | No | stdout | Path to write output file |
+| `mode` | No | `json` | Output format: `json` or `yaml` |
+| `include-hierarchy` | No | `false` | Include full hierarchy structure |
+
+*Either `context-id` or `process-group-id` is required.
+
+**Example - Export to file:**
+```bash
+nipyapi ci export_parameters --context_id <ctx-id> --file_path params.json
+```
+
+**Example - Export from process group's context:**
+```bash
+nipyapi ci export_parameters --process_group_id <pg-id> --file_path params.yaml --mode yaml
+```
+
+**Example - Export with hierarchy structure:**
+```bash
+nipyapi ci export_parameters --context_id <ctx-id> --include_hierarchy --file_path hierarchy.json
+```
+
+#### Configure Inherited Parameters
+
+Set parameter values in inherited contexts. Automatically routes each parameter to its owning context.
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `process-group-id` | Yes | | Process Group ID |
+| `parameters` | No* | | JSON object of parameter name/value pairs |
+| `parameters-file` | No* | | Path to JSON/YAML file with parameters |
+| `dry-run` | No | `false` | Show plan without making changes |
+| `allow-override` | No | `false` | Allow creating new parameters |
+
+*Either `parameters` or `parameters-file` is required.
+
+**Example - Inline parameters:**
+```bash
+nipyapi ci configure_inherited_params --process_group_id <pg-id> \
+  --parameters '{"Source Username": "myuser", "Snowflake Warehouse": "COMPUTE_WH"}'
+```
+
+**Example - From file:**
+```bash
+nipyapi ci configure_inherited_params --process_group_id <pg-id> \
+  --parameters_file params.json
+```
+
+**Example - Dry run first:**
+```bash
+nipyapi ci configure_inherited_params --process_group_id <pg-id> \
+  --parameters_file params.json --dry_run
+```
+
+#### Parameter Migration Workflow
+
+Export parameters from one environment and import to another:
+
+```bash
+# Export from source
+nipyapi ci export_parameters --process_group_id <source-pg-id> \
+  --file_path params.json
+
+# Edit params.json if needed (update environment-specific values)
+
+# Import to target (dry run first)
+nipyapi ci configure_inherited_params --process_group_id <target-pg-id> \
+  --parameters_file params.json --dry_run
+
+# Import to target
+nipyapi ci configure_inherited_params --process_group_id <target-pg-id> \
+  --parameters_file params.json
+```
+
+> **Note**: Sensitive parameter values cannot be exported (NiFi returns null). You must set these manually after import.
+
+#### Upload Asset
+
+```bash
 # Upload a certificate as a parameter asset
 nipyapi ci upload_asset --context_id <ctx-id> --parameter_name "ssl_cert" \
   --file_path /path/to/cert.pem

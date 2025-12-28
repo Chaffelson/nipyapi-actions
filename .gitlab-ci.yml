@@ -32,7 +32,7 @@ variables:
 
   # Flow defaults
   NIFI_BUCKET: flows
-  NIFI_FLOW: cicd-demo-flow
+  NIFI_FLOW: nipyapi_test_cicd_demo
 
   # Infrastructure branch
   NIPYAPI_BRANCH: feature/cli
