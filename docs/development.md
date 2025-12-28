@@ -69,7 +69,7 @@ nipyapi-actions/
 ├── tests/
 │   ├── local.py            # Local Python testing script
 │   └── flows/              # Test flow definitions
-│       └── nipyapi_test_cicd_demo.json
+│       └── cicd-demo-flow.json
 ├── scripts/
 │   └── generate_secrets.py # Generate .secrets for act
 ├── .github/workflows/
@@ -270,12 +270,12 @@ make check-infra       # Verify NiFi is running
 
 ## Test Flow
 
-The CI uses `tests/flows/nipyapi_test_cicd_demo.json` which contains:
+The CI uses `tests/flows/cicd-demo-flow.json` which contains:
 
 - **HandleHttpRequest**: Listens on port 8080
 - **HandleHttpResponse**: Returns response with `version` header
 - **StandardHttpContextMap**: Controller service for HTTP context
-- **Parameter Context**: `nipyapi_test_cicd_params` with `version` parameter
+- **Parameter Context**: `cicd-demo-params` with `version` parameter
 
 The test flow validates:
 1. Deploy flow from GitHub
