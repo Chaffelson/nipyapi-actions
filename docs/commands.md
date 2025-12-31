@@ -2,18 +2,76 @@
 
 Complete reference for all NiPyAPI Actions commands.
 
+## CLI Usage
+
+All commands are available via the `nipyapi` CLI:
+
+```bash
+# Install CLI
+pip install "nipyapi[cli]"
+
+# Run commands
+nipyapi ci ensure_registry
+nipyapi ci deploy_flow
+nipyapi ci start_flow
+```
+
+The CLI auto-detects CI environments and formats output appropriately:
+- **GitHub Actions**: Outputs `key=value` pairs for `$GITHUB_OUTPUT`
+- **GitLab CI**: Outputs `KEY=VALUE` pairs for dotenv artifacts
+- **Terminal**: Outputs JSON by default
+
+## Environment Variables
+
+Both platforms use the same environment variables. The CLI reads these automatically.
+
+| Environment Variable | GitHub Input | Description |
+|---------------------|--------------|-------------|
+| `NIFI_API_ENDPOINT` | `nifi-api-endpoint` | NiFi API URL |
+| `NIFI_BEARER_TOKEN` | `nifi-bearer-token` | JWT bearer token |
+| `NIFI_USERNAME` | `nifi-username` | Basic auth username |
+| `NIFI_PASSWORD` | `nifi-password` | Basic auth password |
+| `NIFI_VERIFY_SSL` | `nifi-verify-ssl` | Verify SSL (default: true) |
+| `NIFI_PROCESS_GROUP_ID` | `process-group-id` | Target process group |
+| `NIFI_REGISTRY_CLIENT_ID` | `registry-client-id` | Registry client ID |
+| `NIFI_BUCKET` | `bucket` | Bucket/folder name |
+| `NIFI_FLOW` | `flow` | Flow name |
+
+**GitHub Actions:**
+```yaml
+- uses: Chaffelson/nipyapi-actions@main
+  with:
+    command: deploy-flow
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-bearer-token: ${{ secrets.NIFI_TOKEN }}
+    bucket: flows
+    flow: my-flow
+```
+
+**GitLab CI:**
+```yaml
+deploy-flow:
+  script:
+    - pip install "nipyapi[cli]"
+    - nipyapi ci deploy_flow | tee -a outputs.env
+  variables:
+    NIFI_API_ENDPOINT: $NIFI_URL
+    NIFI_BEARER_TOKEN: $NIFI_TOKEN
+    NIFI_BUCKET: flows
+    NIFI_FLOW: my-flow
+```
+
 ## Common Inputs
 
-These inputs are common to all commands:
+These connection settings are used by all commands:
 
-| Input | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `command` | Yes | | The command to execute |
-| `nifi-api-endpoint` | Yes | | NiFi API endpoint URL (e.g., `https://nifi:8443/nifi-api`) |
-| `nifi-username` | No | | NiFi username for basic authentication |
-| `nifi-password` | No | | NiFi password for basic authentication |
-| `nifi-verify-ssl` | No | `true` | Whether to verify SSL certificates |
-| `nipyapi-suppress-ssl-warnings` | No | `false` | Suppress SSL warning messages |
+| Environment Variable | Required | Description |
+|---------------------|----------|-------------|
+| `NIFI_API_ENDPOINT` | Yes | NiFi API endpoint URL |
+| `NIFI_BEARER_TOKEN` | No | JWT bearer token (alternative to username/password) |
+| `NIFI_USERNAME` | No | Basic auth username (alternative to bearer token) |
+| `NIFI_PASSWORD` | No | Basic auth password |
+| `NIFI_VERIFY_SSL` | No | Verify SSL certificates (default: true) |
 
 ---
 
@@ -99,18 +157,34 @@ Then deploy with `bucket: production` and `flow: my-flow`.
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   id: registry
   with:
     command: ensure-registry
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     github-registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
     registry-client-name: my-github-registry
     github-registry-repo: myorg/my-flows
-    github-registry-branch: main
+```
+
+**GitLab CI:**
+```yaml
+ensure-registry:
+  script:
+    - pip install "nipyapi[cli]"
+    - nipyapi ci ensure_registry | tee outputs.env
+  variables:
+    NIFI_API_ENDPOINT: $NIFI_URL
+    NIFI_BEARER_TOKEN: $NIFI_TOKEN
+    GH_REGISTRY_TOKEN: $GH_REGISTRY_TOKEN
+    NIFI_REGISTRY_CLIENT_NAME: my-github-registry
+    NIFI_REGISTRY_REPO: myorg/my-flows
+  artifacts:
+    reports:
+      dotenv: outputs.env
 ```
 
 ---
@@ -155,18 +229,28 @@ If `branch` is not specified:
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   id: deploy
   with:
     command: deploy-flow
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
     bucket: flows
     flow: my-flow
-    version: abc123def  # Optional: specific commit
+```
+
+**GitLab CI:**
+```yaml
+deploy-flow:
+  script:
+    - nipyapi ci deploy_flow | tee -a outputs.env
+  variables:
+    NIFI_REGISTRY_CLIENT_ID: $REGISTRY_CLIENT_ID
+    NIFI_BUCKET: flows
+    NIFI_FLOW: my-flow
 ```
 
 ---
@@ -197,14 +281,23 @@ Enables controller services and starts all processors in a Process Group. The fl
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   with:
     command: start-flow
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+**GitLab CI:**
+```yaml
+start-flow:
+  script:
+    - nipyapi ci start_flow | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
 ```
 
 ---
@@ -215,14 +308,18 @@ Stop a running Process Group.
 
 ### Description
 
-Stops all processors and optionally disables controller services in a Process Group.
+Stops all processors in a Process Group. By default, controller services remain
+enabled so the flow can be quickly restarted.
+
+Use `--disable_controllers` if you need to delete the process group afterward
+(deletion requires disabled controllers and purged queues).
 
 ### Inputs
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `process-group-id` | Yes | | Process Group ID to stop |
-| `disable-controllers` | No | `true` | Disable controller services after stopping processors |
+| `disable-controllers` | No | `false` | Also disable controller services (needed before deletion) |
 
 ### Outputs
 
@@ -230,19 +327,37 @@ Stops all processors and optionally disables controller services in a Process Gr
 |--------|-------------|
 | `stopped` | `true` if the process group was stopped |
 | `process-group-name` | Name of the stopped process group |
-| `message` | Status message |
+| `controllers-disabled` | `true` if controllers were disabled |
 | `success` | `true` if successful |
 
 ### Example
 
+**GitHub Actions (simple stop):**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   with:
     command: stop-flow
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+**GitLab CI (simple stop):**
+```yaml
+stop-flow:
+  script:
+    - nipyapi ci stop_flow | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+```
+
+**GitLab CI (stop with disabled controllers - before deletion):**
+```yaml
+stop-for-deletion:
+  script:
+    - nipyapi ci stop_flow --disable_controllers | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
 ```
 
 ---
@@ -277,25 +392,25 @@ Changes the version of an already-deployed Process Group to a specified version 
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
-# Change to a specific tagged version
 - uses: Chaffelson/nipyapi-actions@main
   with:
     command: change-version
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-    target-version: v1.0.0
+    target-version: v1.0.0  # omit for latest
+```
 
-# Change to latest version (omit target-version)
-- uses: Chaffelson/nipyapi-actions@main
-  with:
-    command: change-version
-    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
-    process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+**GitLab CI:**
+```yaml
+change-version:
+  script:
+    - nipyapi ci change_flow_version | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+    NIFI_TARGET_VERSION: v1.0.0  # omit for latest
 ```
 
 ### Notes
@@ -334,23 +449,23 @@ Reverts any local (uncommitted) changes made to a deployed Process Group, restor
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
-  id: revert
   with:
     command: revert-flow
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
 
-- name: Check revert result
-  run: |
-    if [ "${{ steps.revert.outputs.reverted }}" = "true" ]; then
-      echo "Local changes were reverted"
-    else
-      echo "Flow was already up to date"
-    fi
+**GitLab CI:**
+```yaml
+revert-flow:
+  script:
+    - nipyapi ci revert_flow | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
 ```
 
 ### Notes
@@ -363,40 +478,66 @@ Reverts any local (uncommitted) changes made to a deployed Process Group, restor
 
 ## cleanup
 
-Delete a Process Group and its associated resources.
+Stop and optionally delete a Process Group.
 
 ### Description
 
-Stops processors, disables controller services, purges connections, and deletes a Process Group. Optionally deletes the associated parameter context.
+By default, stops processors, disables controller services, and deletes the Process Group.
+Does NOT delete the parameter context by default (safe for shared contexts like Openflow connectors).
+
+Use explicit flags for more aggressive cleanup in CI/CD pipelines.
 
 ### Inputs
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `process-group-id` | Yes | | Process Group ID to delete |
-| `force-delete` | No | `true` | Force deletion even if flow has data |
-| `delete-parameter-context` | No | `true` | Delete the associated parameter context |
+| `process-group-id` | Yes | | Process Group ID to clean up |
+| `stop-only` | No | `false` | Only stop processors, don't delete anything |
+| `force` | No | `false` | Force deletion even if flow has queued data |
+| `delete-parameter-context` | No | `false` | Also delete the parameter context (use with caution) |
+| `disable-controllers` | No | `true` | Disable controller services after stopping |
 
 ### Outputs
 
 | Output | Description |
 |--------|-------------|
+| `stopped` | `true` if processors were stopped |
 | `deleted` | `true` if the process group was deleted |
-| `deleted-name` | Name of the deleted process group |
-| `message` | Status message |
+| `process-group-name` | Name of the process group |
+| `parameter-context-deleted` | `true` if parameter context was deleted |
 | `success` | `true` if successful |
 
 ### Example
 
+**GitHub Actions (safe cleanup - keeps parameter context):**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
-  if: always()  # Run even if previous steps failed
+  if: always()
   with:
     command: cleanup
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+**GitLab CI (full cleanup for CI/CD pipelines):**
+```yaml
+cleanup:
+  script:
+    # Full cleanup with parameter context deletion (only for CI-deployed flows)
+    - nipyapi ci cleanup --delete_parameter_context --force | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+  when: always
+```
+
+**GitLab CI (stop only - no deletion):**
+```yaml
+stop-flow:
+  script:
+    - nipyapi ci cleanup --stop_only | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
 ```
 
 ---
@@ -427,15 +568,25 @@ Updates parameter values in the parameter context attached to a Process Group. T
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   with:
     command: configure-params
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-    parameters: '{"version": "2.0.0", "environment": "staging", "api_key": "${{ secrets.API_KEY }}"}'
+    parameters: '{"version": "2.0.0", "environment": "staging"}'
+```
+
+**GitLab CI:**
+```yaml
+configure-params:
+  script:
+    - nipyapi ci configure_params | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+    NIFI_PARAMETERS: '{"version": "2.0.0", "environment": "staging"}'
 ```
 
 ### Notes
@@ -517,31 +668,466 @@ Returns detailed information about a Process Group including processor states, c
 
 ### Example
 
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   id: status
   with:
     command: get-status
     nifi-api-endpoint: ${{ secrets.NIFI_URL }}
-    nifi-username: ${{ secrets.NIFI_USERNAME }}
-    nifi-password: ${{ secrets.NIFI_PASSWORD }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
+    process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+**GitLab CI:**
+```yaml
+get-status:
+  script:
+    - nipyapi ci get_status | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+  artifacts:
+    reports:
+      dotenv: outputs.env
+```
+
+---
+
+## list-registry-flows
+
+List flows available in a Git registry bucket.
+
+### Description
+
+Queries a Git-based Flow Registry to list available flows within a bucket. Useful for discovering what flows can be deployed before running `deploy-flow`.
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `registry-client-id` | Yes | | Registry client ID (from `ensure-registry`) |
+| `bucket` | Yes | | Bucket (folder) to list flows from |
+| `branch` | No | _default_ | Branch to query |
+| `detailed` | No | `false` | Include descriptions and comments |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `registry-client-id` | Registry client ID used |
+| `registry-client-name` | Registry client name |
+| `bucket` | Bucket queried |
+| `flow-count` | Number of flows found |
+| `flows` | JSON array of flow info (name, flow_id) |
+| `success` | `true` if successful |
+
+### Example
+
+**GitHub Actions:**
+```yaml
+- uses: Chaffelson/nipyapi-actions@main
+  id: list-flows
+  with:
+    command: list-registry-flows
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
+    registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
+    bucket: flows
+```
+
+**GitLab CI:**
+```yaml
+list-registry-flows:
+  script:
+    - nipyapi ci list_registry_flows | tee -a outputs.env
+  variables:
+    NIFI_REGISTRY_CLIENT_ID: $REGISTRY_CLIENT_ID
+    NIFI_BUCKET: flows
+```
+
+---
+
+## get-versions
+
+List available versions for a deployed flow.
+
+### Description
+
+Returns the version history of a deployed, version-controlled Process Group. Use this to see what versions are available for promotion, rollback, or to verify the current deployed version.
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `process-group-id` | Yes | | Process Group ID |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `flow-id` | Flow identifier in registry |
+| `bucket-id` | Bucket containing the flow |
+| `registry-id` | Registry client ID |
+| `current-version` | Currently deployed version |
+| `state` | Version control state |
+| `version-count` | Number of versions available |
+| `versions` | JSON array of version metadata |
+| `success` | `true` if successful |
+
+### Example
+
+**GitHub Actions:**
+```yaml
+- uses: Chaffelson/nipyapi-actions@main
+  id: versions
+  with:
+    command: get-versions
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
+    process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+```
+
+**GitLab CI:**
+```yaml
+get-versions:
+  script:
+    - nipyapi ci get_flow_versions | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+```
+
+### Notes
+
+- The `versions` output contains commit SHA, author, timestamp, and comments for each version
+- Use with `change-version` to switch to a specific version
+
+---
+
+## get-diff
+
+Check for local modifications to a versioned flow.
+
+### Description
+
+Returns details about any local (uncommitted) changes made to a version-controlled Process Group. Use this before promotion to detect modifications that would block a version upgrade.
+
+This is particularly important in environments where someone may have made emergency changes that weren't committed back to the registry.
+
+### Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `process-group-id` | Yes | | Process Group ID |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `process-group-id` | Process Group ID |
+| `process-group-name` | Process Group name |
+| `flow-id` | Flow ID in registry |
+| `current-version` | Current committed version |
+| `state` | Version control state (`UP_TO_DATE`, `LOCALLY_MODIFIED`, etc.) |
+| `modification-count` | Number of modified components |
+| `modifications` | JSON array of modification details |
+| `success` | `true` if successful |
+
+### Example
+
+**GitHub Actions:**
+```yaml
+- uses: Chaffelson/nipyapi-actions@main
+  id: diff
+  with:
+    command: get-diff
+    nifi-api-endpoint: ${{ secrets.NIFI_URL }}
+    nifi-bearer-token: ${{ secrets.NIFI_BEARER_TOKEN }}
     process-group-id: ${{ steps.deploy.outputs.process-group-id }}
 
-- name: Check for issues
+- name: Check for modifications
+  if: steps.diff.outputs.modification-count != '0'
   run: |
-    if [ "${{ steps.status.outputs.invalid-processors }}" != "0" ]; then
-      echo "ERROR: Flow has invalid processors"
-      exit 1
-    fi
-    if [ "${{ steps.status.outputs.running-processors }}" != "${{ steps.status.outputs.total-processors }}" ]; then
-      echo "WARNING: Not all processors are running"
-    fi
+    echo "WARNING: Flow has ${{ steps.diff.outputs.modification-count }} local modifications"
+    echo "Consider reverting before upgrade: use revert-flow command"
 ```
+
+**GitLab CI:**
+```yaml
+get-diff:
+  script:
+    - nipyapi ci get_flow_diff | tee -a outputs.env
+  variables:
+    NIFI_PROCESS_GROUP_ID: $PROCESS_GROUP_ID
+
+check-modifications:
+  script:
+    - |
+      if [ "$MODIFICATION_COUNT" != "0" ]; then
+        echo "WARNING: Flow has local modifications - review before promotion"
+        exit 1
+      fi
+```
+
+### Notes
+
+- If `modification-count` is 0 and `state` is `UP_TO_DATE`, the flow matches the registry version
+- Use `revert-flow` to discard local modifications before upgrading
+- The `modifications` array shows exactly what changed (component, type, description)
+
+---
+
+## Additional CLI Functions
+
+The `nipyapi` CLI provides additional functions that may be useful for advanced CI/CD workflows. These are not included in the example action implementations above, but are available via direct CLI usage.
+
+### Discovery and Audit
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `list_flows` | `nipyapi ci list_flows` | List Process Groups deployed on the NiFi canvas |
+
+**Example:**
+```bash
+# List all flows on canvas
+nipyapi ci list_flows
+
+# Use in GitLab CI
+nipyapi ci list_flows | tee -a outputs.env
+```
+
+### GitOps / Development Workflows
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `commit_flow` | `nipyapi ci commit_flow` | Commit local changes back to Git registry |
+| `detach_flow` | `nipyapi ci detach_flow` | Remove version control from a Process Group |
+
+**Example:**
+```bash
+# Commit local modifications to registry
+nipyapi ci commit_flow --process_group_id <pg-id> --comment "Updated processor config"
+
+# Detach from version control (fork a flow)
+nipyapi ci detach_flow --process_group_id <pg-id>
+```
+
+> **Note**: These are typically used in development workflows rather than production CI/CD pipelines. See the [nipyapi documentation](https://nipyapi.readthedocs.io/) for full details.
+
+### Parameter Management
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `export_parameters` | `nipyapi ci export_parameters` | Export parameters from a context hierarchy |
+| `configure_inherited_params` | `nipyapi ci configure_inherited_params` | Set values in inherited parameter contexts |
+| `upload_asset` | `nipyapi ci upload_asset` | Upload a file as a parameter asset |
+
+#### Export Parameters
+
+Export parameters from a parameter context for backup or migration. Exports all parameter names and values (sensitive values are null but keys are preserved).
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `context-id` | one-of | | Parameter context ID to export |
+| `process-group-id` | one-of | | Resolve context from this process group |
+| `file-path` | No | stdout | Path to write output file |
+| `mode` | No | `json` | Output format: `json` or `yaml` |
+| `include-hierarchy` | No | `false` | Include full hierarchy structure |
+
+*Either `context-id` or `process-group-id` is required.
+
+**Example - Export to file:**
+```bash
+nipyapi ci export_parameters --context_id <ctx-id> --file_path params.json
+```
+
+**Example - Export from process group's context:**
+```bash
+nipyapi ci export_parameters --process_group_id <pg-id> --file_path params.yaml --mode yaml
+```
+
+**Example - Export with hierarchy structure:**
+```bash
+nipyapi ci export_parameters --context_id <ctx-id> --include_hierarchy --file_path hierarchy.json
+```
+
+#### Configure Inherited Parameters
+
+Set parameter values in inherited contexts. Automatically routes each parameter to its owning context.
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `process-group-id` | Yes | | Process Group ID |
+| `parameters` | No* | | JSON object of parameter name/value pairs |
+| `parameters-file` | No* | | Path to JSON/YAML file with parameters |
+| `dry-run` | No | `false` | Show plan without making changes |
+| `allow-override` | No | `false` | Allow creating new parameters |
+
+*Either `parameters` or `parameters-file` is required.
+
+**Example - Inline parameters:**
+```bash
+nipyapi ci configure_inherited_params --process_group_id <pg-id> \
+  --parameters '{"Source Username": "myuser", "Snowflake Warehouse": "COMPUTE_WH"}'
+```
+
+**Example - From file:**
+```bash
+nipyapi ci configure_inherited_params --process_group_id <pg-id> \
+  --parameters_file params.json
+```
+
+**Example - Dry run first:**
+```bash
+nipyapi ci configure_inherited_params --process_group_id <pg-id> \
+  --parameters_file params.json --dry_run
+```
+
+#### Parameter Migration Workflow
+
+Export parameters from one environment and import to another:
+
+```bash
+# Export from source
+nipyapi ci export_parameters --process_group_id <source-pg-id> \
+  --file_path params.json
+
+# Edit params.json if needed (update environment-specific values)
+
+# Import to target (dry run first)
+nipyapi ci configure_inherited_params --process_group_id <target-pg-id> \
+  --parameters_file params.json --dry_run
+
+# Import to target
+nipyapi ci configure_inherited_params --process_group_id <target-pg-id> \
+  --parameters_file params.json
+```
+
+> **Note**: Sensitive parameter values cannot be exported (NiFi returns null). You must set these manually after import.
+
+#### Upload Asset
+
+```bash
+# Upload a certificate as a parameter asset
+nipyapi ci upload_asset --context_id <ctx-id> --parameter_name "ssl_cert" \
+  --file_path /path/to/cert.pem
+```
+
+### Version Resolution
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `resolve_git_ref` | `nipyapi ci resolve_git_ref` | Resolve a Git tag or ref to a commit SHA |
+
+**Example:**
+```bash
+# Resolve a tag to its commit SHA
+nipyapi ci resolve_git_ref --process_group_id <pg-id> --ref "v1.0.0"
+```
+
+> **Note**: Useful for tag-based release workflows where you need to convert a semantic version tag to the actual commit identifier.
+
+### State Management
+
+The `nipyapi canvas` module provides commands for inspecting and clearing component state.
+Useful for resetting listing processors, debugging stateful flows, and test cleanup.
+
+| Command | Description |
+|---------|-------------|
+| `nipyapi canvas get_processor_state <id>` | Get state entries for a processor |
+| `nipyapi canvas clear_processor_state <id>` | Clear all state for a processor |
+| `nipyapi canvas get_controller_state <id>` | Get state entries for a controller service |
+| `nipyapi canvas clear_controller_state <id>` | Clear state for a controller (must be DISABLED) |
+
+**Example - Get processor state (ListFile, ListS3, etc.):**
+```bash
+nipyapi --profile <profile> canvas get_processor_state <processor-id>
+```
+
+Output:
+```json
+{
+  "component_state": {
+    "local_state": {
+      "total_entry_count": 3,
+      "state": [
+        {"key": "listing.timestamp", "value": "1735329600000"},
+        {"key": "processed.files", "value": "file1.txt,file2.txt"}
+      ]
+    }
+  }
+}
+```
+
+**Example - Clear processor state (reset to re-process files):**
+```bash
+nipyapi --profile <profile> canvas clear_processor_state <processor-id>
+```
+
+**Example - Get controller service state:**
+```bash
+nipyapi --profile <profile> canvas get_controller_state <controller-id>
+```
+
+> **Note**: Controller services must be DISABLED before their state can be cleared.
+> State may be in `local_state` (standalone) or `cluster_state` (clustered mode).
+
+### Bulletin Management (NiFi 2.7.0+)
+
+The `nipyapi bulletins` module provides functions for monitoring and clearing bulletins.
+These are useful for debugging flows during development and validating test runs in CI.
+
+| Function | CLI Command | Description |
+|----------|-------------|-------------|
+| `get_bulletins` | `nipyapi bulletins get_bulletins` | Get flow controller bulletins |
+| `get_bulletin_board` | `nipyapi bulletins get_bulletin_board` | Get filtered bulletins with search options |
+| `clear_all_bulletins` | `nipyapi bulletins clear_all_bulletins` | Clear all bulletins from a process group |
+
+**Example - Check for errors after test run:**
+```bash
+# Get all bulletins from a specific process group (useful after deploy/start)
+nipyapi bulletins get_bulletin_board --pg_id <pg-id>
+
+# Filter bulletins by processor name
+nipyapi bulletins get_bulletin_board --pg_id <pg-id> --source_name ".*MyProcessor.*"
+
+# Filter by message content (e.g., find errors)
+nipyapi bulletins get_bulletin_board --pg_id <pg-id> --message ".*error.*"
+```
+
+**Example - Clean state between tests:**
+```bash
+# Clear all bulletins before/after test runs
+nipyapi bulletins clear_all_bulletins --pg_id <pg-id>
+
+# Clear all bulletins from root
+nipyapi bulletins clear_all_bulletins
+```
+
+**GitLab CI Example - Validate no errors after test:**
+```yaml
+validate-flow:
+  script:
+    - nipyapi ci start_flow
+    - sleep 10  # Let flow run
+    - |
+      BULLETINS=$(nipyapi bulletins get_bulletin_board --pg_id $PROCESS_GROUP_ID)
+      if echo "$BULLETINS" | grep -q "ERROR"; then
+        echo "Flow produced errors:"
+        echo "$BULLETINS"
+        exit 1
+      fi
+```
+
+> **Note**: Bulletin clearing requires NiFi 2.7.0 or later. The `clear_all_bulletins`
+> function clears both process group component bulletins and controller service bulletins.
+> Flow controller bulletins (system-level) cannot be cleared via API.
 
 ---
 
 ## See Also
 
-- [Setup Guide](setup.md) - Getting started
-- [Security Guide](security.md) - PAT and secrets best practices
+- [GitHub Actions Guide](github-actions.md) - GitHub Actions setup
+- [GitLab CI Guide](gitlab-ci.md) - GitLab CI setup
+- [Security Guide](security.md) - Authentication and secrets
 - [How It Works](how-it-works.md) - Architecture overview
+- [nipyapi Documentation](https://nipyapi.readthedocs.io/) - Full client documentation

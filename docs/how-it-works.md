@@ -1,32 +1,47 @@
 # How NiPyAPI Actions Works
 
-This document explains the conceptual architecture of NiFi flow CI/CD using GitHub Actions.
+This document explains the conceptual architecture of NiFi flow CI/CD.
 
 ## The Big Picture
 
-NiPyAPI Actions enables automated testing and deployment of Apache NiFi flows using GitHub as the source of truth for flow definitions.
+NiPyAPI Actions enables automated testing and deployment of Apache NiFi flows using Git as the source of truth for flow definitions.
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   NiFi UI       │     │    GitHub       │     │  GitHub Actions │
+│   NiFi UI       │     │  Git Repository │     │    CI/CD        │
 │                 │     │                 │     │                 │
 │  Design flows   │────▶│  Store flows    │────▶│  Test & Deploy  │
 │  Export to Git  │     │  Version control│     │  to NiFi        │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
+                              │
+                    GitHub or GitLab
 ```
+
+## Supported CI/CD Platforms
+
+| Platform | Status | Guide |
+|----------|--------|-------|
+| GitHub Actions | Stable | [GitHub Actions Guide](github-actions.md) |
+| GitLab CI/CD | Stable | [GitLab CI Guide](gitlab-ci.md) |
+
+Both platforms use the same core operations and environment variables.
 
 ## Key Components
 
-### 1. NiFi's GitHub Flow Registry Client
+### 1. NiFi's Git Flow Registry Client
 
-Apache NiFi 2.x includes a native **GitHub Flow Registry Client** that can:
-- Read flow definitions directly from GitHub repositories
+Apache NiFi 2.x includes native **Git Flow Registry Clients** that can:
+- Read flow definitions directly from Git repositories
 - Track versions using Git commits
 - Deploy specific versions or branches to the NiFi canvas
 
+Supported providers:
+- **GitHub Flow Registry Client** - for GitHub repositories
+- **GitLab Flow Registry Client** - for GitLab repositories (planned)
+
 This is a built-in NiFi feature - no separate NiFi Registry instance is required.
 
-### 2. Flow Storage in GitHub
+### 2. Flow Storage in Git
 
 Flows are stored as JSON files in a specific structure:
 
@@ -58,10 +73,21 @@ your-repo/
 
 NiPyAPI Actions uses nipyapi under the hood for all NiFi interactions.
 
-### 4. GitHub Actions Integration
+### 4. CLI and CI/CD Integration
 
-This action wraps nipyapi functionality into GitHub Actions commands:
+The `nipyapi` CLI provides high-level CI operations that both platforms use:
 
+```bash
+# Install the CLI
+pip install "nipyapi[cli]"
+
+# Run CI operations
+nipyapi ci deploy_flow
+nipyapi ci start_flow
+nipyapi ci get_status
+```
+
+**GitHub Actions:**
 ```yaml
 - uses: Chaffelson/nipyapi-actions@main
   with:
@@ -69,6 +95,19 @@ This action wraps nipyapi functionality into GitHub Actions commands:
     bucket: flows
     flow: my-flow
 ```
+
+**GitLab CI:**
+```yaml
+deploy-flow:
+  script:
+    - pip install "nipyapi[cli]"
+    - nipyapi ci deploy_flow | tee outputs.env
+  variables:
+    NIFI_BUCKET: flows
+    NIFI_FLOW: my-flow
+```
+
+The CLI auto-detects the CI environment and formats output appropriately.
 
 ## The CI/CD Workflow
 
@@ -78,16 +117,16 @@ This action wraps nipyapi functionality into GitHub Actions commands:
 1. Developer designs flow in NiFi UI
          │
          ▼
-2. Developer exports flow to GitHub (via NiFi's version control)
+2. Developer exports flow to Git (via NiFi's version control)
          │
          ▼
-3. Developer creates PR with flow changes
+3. Developer creates PR/MR with flow changes
          │
          ▼
-4. GitHub Actions workflow triggers
+4. CI/CD pipeline triggers
          │
          ▼
-5. Action deploys flow to test NiFi instance
+5. Pipeline deploys flow to test NiFi instance
          │
          ▼
 6. Tests run against deployed flow
@@ -96,7 +135,7 @@ This action wraps nipyapi functionality into GitHub Actions commands:
 7. Cleanup removes test deployment
          │
          ▼
-8. PR approved and merged
+8. PR/MR approved and merged
          │
          ▼
 9. Production NiFi can pull new version
@@ -106,11 +145,11 @@ This action wraps nipyapi functionality into GitHub Actions commands:
 
 When `deploy-flow` runs:
 
-1. **Registry Client Setup**: Action ensures a GitHub Flow Registry Client exists in NiFi, configured with your repository and PAT
+1. **Registry Client Setup**: Ensures a Git Flow Registry Client exists in NiFi, configured with your repository and access token
 
-2. **Version Resolution**: NiFi's registry client queries GitHub API to find available versions (commits) of the specified flow
+2. **Version Resolution**: NiFi's registry client queries the Git provider's API to find available versions (commits) of the specified flow
 
-3. **Flow Import**: NiFi downloads the flow JSON from GitHub and creates a Process Group on the canvas
+3. **Flow Import**: NiFi downloads the flow JSON and creates a Process Group on the canvas
 
 4. **Parameter Context**: If the flow references parameters, NiFi creates the parameter context
 
@@ -118,17 +157,17 @@ When `deploy-flow` runs:
 
 ## Authentication
 
-### GitHub PAT Requirement
+### Git Provider Token
 
-The NiFi GitHub Flow Registry Client authenticates to GitHub using a Personal Access Token (PAT). This is required because:
+The NiFi Git Flow Registry Client authenticates to your Git provider using a Personal Access Token (PAT):
 
-- NiFi needs to call GitHub's API to list and download flows
-- The automatic `GITHUB_TOKEN` provided by Actions doesn't work (it's an app token, not a user token)
-- A fine-grained PAT with read-only access is recommended
+- **GitHub**: Fine-grained PAT with read access to Contents and Metadata
+- **GitLab**: Project access token with read_repository scope
 
 ### NiFi Authentication
 
-The action authenticates to NiFi using:
+NiPyAPI Actions authenticates to NiFi using:
+- JWT bearer token
 - Basic authentication (username/password)
 - SSL verification (configurable)
 
@@ -139,17 +178,18 @@ The action authenticates to NiFi using:
 - Stores flows in its own database
 - Requires network connectivity between NiFi and Registry
 
-**GitHub Flow Registry Client:**
+**Git Flow Registry Client:**
 - Built into NiFi 2.x
-- Uses GitHub as storage (no separate service)
+- Uses Git as storage (no separate service)
 - Leverages Git's versioning and branching
 - Better suited for GitOps workflows
 
-NiPyAPI Actions is designed for the GitHub Flow Registry Client approach. If you're using traditional NiFi Registry, see nipyapi's standard versioning functions.
+NiPyAPI Actions is designed for the Git Flow Registry Client approach. If you're using traditional NiFi Registry, see nipyapi's standard versioning functions.
 
-## Next Steps
+## See Also
 
-- [Setup Guide](setup.md) - Get started with NiPyAPI Actions
-- [GitOps Guide](gitops.md) - Feature branches, parameters, and promotion patterns
-- [Commands Reference](commands.md) - Detailed command documentation
-- [Security Guide](security.md) - PAT setup and best practices
+- [GitHub Actions Guide](github-actions.md) - GitHub Actions setup
+- [GitLab CI Guide](gitlab-ci.md) - GitLab CI setup
+- [Commands Reference](commands.md) - All commands and options
+- [GitOps Guide](gitops.md) - Feature branches and promotion patterns
+- [Security Guide](security.md) - Authentication and secrets

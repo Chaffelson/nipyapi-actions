@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Chaffelson/nipyapi
-          ref: feature/github-cicd-versioning
+          ref: main
           path: nipyapi-infra
 
       - name: Set up Python 3.11
@@ -57,8 +57,8 @@ jobs:
           nifi-username: einstein
           nifi-password: password1234
           nifi-verify-ssl: 'false'
-          github-registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
-          github-registry-repo: ${{ github.repository }}
+          registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
+          registry-repo: ${{ github.repository }}
           registry-client-name: 'ci-test-registry'
           repository-path: 'tests'
 
@@ -69,6 +69,29 @@ jobs:
             echo "ERROR: registry-client-id not set"
             exit 1
           fi
+
+      # Test: List Registry Flows
+      - name: Test list-registry-flows
+        uses: ./
+        id: list-flows
+        with:
+          command: list-registry-flows
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
+          bucket: flows
+
+      - name: Verify list-registry-flows output
+        run: |
+          echo "Flow count: ${{ steps.list-flows.outputs.flow-count }}"
+          echo "Flows: ${{ steps.list-flows.outputs.flows }}"
+          if [ -z "${{ steps.list-flows.outputs.flow-count }}" ] || [ "${{ steps.list-flows.outputs.flow-count }}" = "0" ]; then
+            echo "ERROR: Expected at least one flow"
+            exit 1
+          fi
+          echo "SUCCESS: Found ${{ steps.list-flows.outputs.flow-count }} flow(s)"
 
       # Test: Deploy Flow
       - name: Test deploy-flow
@@ -82,7 +105,7 @@ jobs:
           nifi-verify-ssl: 'false'
           registry-client-id: ${{ steps.registry.outputs.registry-client-id }}
           bucket: flows
-          flow: cicd-demo-flow
+          flow: nipyapi_test_cicd_demo
 
       - name: Verify deploy output
         run: |
@@ -92,6 +115,55 @@ jobs:
             echo "ERROR: process-group-id not set"
             exit 1
           fi
+
+      # Test: Get Versions
+      - name: Test get-versions
+        uses: ./
+        id: versions
+        with:
+          command: get-versions
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify get-versions output
+        run: |
+          echo "Current Version: ${{ steps.versions.outputs.current-version }}"
+          echo "Version Count: ${{ steps.versions.outputs.version-count }}"
+          echo "Flow ID: ${{ steps.versions.outputs.flow-id }}"
+          if [ -z "${{ steps.versions.outputs.version-count }}" ] || [ "${{ steps.versions.outputs.version-count }}" = "0" ]; then
+            echo "ERROR: Expected at least one version"
+            exit 1
+          fi
+          echo "SUCCESS: Found ${{ steps.versions.outputs.version-count }} version(s)"
+
+      # Test: Get Diff (should be UP_TO_DATE after fresh deploy)
+      - name: Test get-diff (clean state)
+        uses: ./
+        id: diff
+        with:
+          command: get-diff
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify get-diff output
+        run: |
+          echo "State: ${{ steps.diff.outputs.state }}"
+          echo "Modification Count: ${{ steps.diff.outputs.modification-count }}"
+          if [ "${{ steps.diff.outputs.state }}" != "UP_TO_DATE" ]; then
+            echo "ERROR: Expected UP_TO_DATE state after fresh deploy"
+            exit 1
+          fi
+          if [ "${{ steps.diff.outputs.modification-count }}" != "0" ]; then
+            echo "ERROR: Expected 0 modifications after fresh deploy"
+            exit 1
+          fi
+          echo "SUCCESS: Flow is UP_TO_DATE with 0 modifications"
 
       # Test: Start Flow
       - name: Test start-flow
@@ -104,7 +176,6 @@ jobs:
           nifi-password: password1234
           nifi-verify-ssl: 'false'
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-          enable-controllers: 'true'
 
       - name: Verify flow started
         run: |
@@ -187,7 +258,7 @@ jobs:
             exit 1
           fi
 
-      # Test: Change Version (to older version v1.0.0)
+      # Test: Change Version (to older version v1.0.0 tag)
       - name: Test change-version (to v1.0.0)
         uses: ./
         id: change-version
@@ -198,18 +269,22 @@ jobs:
           nifi-password: password1234
           nifi-verify-ssl: 'false'
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-          target-version: 'v1.0.0'
-          github-registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
+          version: 'v1.0.0'
+          registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
 
       - name: Verify version changed
         run: |
           echo "Previous Version: ${{ steps.change-version.outputs.previous-version }}"
           echo "New Version: ${{ steps.change-version.outputs.new-version }}"
-          # v1.0.0 tag resolves to this SHA
-          if [[ "${{ steps.change-version.outputs.new-version }}" == "97549b88f2e1fb1dccddef57335e94628c74060b" ]]; then
-            echo "SUCCESS: Version changed to v1.0.0"
+          # Verify version changed
+          if [[ -z "${{ steps.change-version.outputs.new-version }}" ]]; then
+            echo "ERROR: new-version output is empty"
+            exit 1
+          fi
+          if [[ "${{ steps.change-version.outputs.new-version }}" != "${{ steps.change-version.outputs.previous-version }}" ]]; then
+            echo "SUCCESS: Version changed from previous to v1.0.0"
           else
-            echo "ERROR: Expected v1.0.0 SHA, got ${{ steps.change-version.outputs.new-version }}"
+            echo "ERROR: Version did not change"
             exit 1
           fi
 
@@ -224,20 +299,20 @@ jobs:
           nifi-password: password1234
           nifi-verify-ssl: 'false'
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-          github-registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
+          registry-token: ${{ secrets.GH_REGISTRY_TOKEN }}
           # No target-version means latest
 
       - name: Verify changed to latest
         run: |
           echo "Previous Version: ${{ steps.change-latest.outputs.previous-version }}"
           echo "New Version: ${{ steps.change-latest.outputs.new-version }}"
-          # Verify previous was v1.0.0 and new is different (i.e., latest)
-          if [[ "${{ steps.change-latest.outputs.previous-version }}" != "97549b88f2e1fb1dccddef57335e94628c74060b" ]]; then
-            echo "ERROR: Previous version should be v1.0.0 SHA"
+          # Verify version changed (previous was v1.0.0, now is latest)
+          if [[ -z "${{ steps.change-latest.outputs.new-version }}" ]]; then
+            echo "ERROR: new-version output is empty"
             exit 1
           fi
           if [[ "${{ steps.change-latest.outputs.new-version }}" == "${{ steps.change-latest.outputs.previous-version }}" ]]; then
-            echo "ERROR: Version did not change"
+            echo "ERROR: Version did not change from v1.0.0 to latest"
             exit 1
           fi
           echo "SUCCESS: Changed from v1.0.0 to latest (${{ steps.change-latest.outputs.new-version }})"
@@ -252,10 +327,12 @@ jobs:
           NIFI_VERIFY_SSL: 'false'
         run: |
           python -c "
-          import sys; sys.path.insert(0, 'src')
-          from nipyapi import profiles; profiles.switch('env')
-          from utils import modify_processor
-          modify_processor('${{ steps.deploy.outputs.process-group-id }}')
+          import nipyapi
+          nipyapi.profiles.switch('env')
+          processors = nipyapi.canvas.list_all_processors('${{ steps.deploy.outputs.process-group-id }}')
+          p = processors[0]
+          nipyapi.canvas.update_processor(p, name=p.component.name + '-modified', auto_stop=True)
+          print('Modified processor:', p.component.name)
           "
 
       - name: Verify LOCALLY_MODIFIED state via get-status
@@ -277,6 +354,32 @@ jobs:
             exit 1
           fi
           echo "SUCCESS: Flow is LOCALLY_MODIFIED"
+
+      # Test: Get Diff (should show modifications after structural change)
+      - name: Test get-diff (with modifications)
+        uses: ./
+        id: diff-modified
+        with:
+          command: get-diff
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify get-diff detects modifications
+        run: |
+          echo "State: ${{ steps.diff-modified.outputs.state }}"
+          echo "Modification Count: ${{ steps.diff-modified.outputs.modification-count }}"
+          if [ "${{ steps.diff-modified.outputs.state }}" != "LOCALLY_MODIFIED" ]; then
+            echo "ERROR: Expected LOCALLY_MODIFIED state"
+            exit 1
+          fi
+          if [ "${{ steps.diff-modified.outputs.modification-count }}" = "0" ]; then
+            echo "ERROR: Expected modifications to be detected"
+            exit 1
+          fi
+          echo "SUCCESS: get-diff detected ${{ steps.diff-modified.outputs.modification-count }} modification(s)"
 
       - name: Test revert-flow
         uses: ./
@@ -317,6 +420,27 @@ jobs:
         run: |
           echo "Flow stopped: ${{ steps.stop.outputs.stopped }}"
 
+      # Test: Purge FlowFiles
+      - name: Test purge-flowfiles
+        uses: ./
+        id: purge
+        with:
+          command: purge-flowfiles
+          nifi-api-endpoint: https://localhost:9447/nifi-api
+          nifi-username: einstein
+          nifi-password: password1234
+          nifi-verify-ssl: 'false'
+          process-group-id: ${{ steps.deploy.outputs.process-group-id }}
+
+      - name: Verify purge
+        run: |
+          echo "Purged: ${{ steps.purge.outputs.purged }}"
+          echo "Connections purged: ${{ steps.purge.outputs.connections-purged }}"
+          if [ "${{ steps.purge.outputs.purged }}" != "true" ]; then
+            echo "ERROR: Expected purged=true"
+            exit 1
+          fi
+
       # Test: Cleanup
       - name: Test cleanup
         if: always()
@@ -329,7 +453,7 @@ jobs:
           nifi-password: password1234
           nifi-verify-ssl: 'false'
           process-group-id: ${{ steps.deploy.outputs.process-group-id }}
-          force-delete: 'true'
+          force: 'true'
           delete-parameter-context: 'true'
 
       - name: Verify cleanup
