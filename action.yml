@@ -251,7 +251,7 @@ runs:
   steps:
     - name: Install nipyapi CLI
       shell: bash
-      run: pip install -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+      run: pip install -q "nipyapi[cli]>=1.2.0"
 
     - name: Run command
       id: run

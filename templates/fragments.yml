@@ -31,7 +31,7 @@
   setup:
     - |
       if [ "$LOCAL_TEST" != "true" ]; then
-        pip install -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+        pip install -q "nipyapi[cli]>=1.2.0"
       else
         echo "LOCAL_TEST=true: using pre-installed nipyapi from UV environment"
       fi
