@@ -1,6 +1,6 @@
 [project]
 name = "nipyapi-actions"
-version = "0.1.0"
+version = "2.0.0"
 description = "CI/CD actions for Apache NiFi flows using nipyapi"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -10,9 +10,7 @@ authors = [
 ]
 
 dependencies = [
-    # For local testing, use editable install from feature/cli branch
-    # In production: "nipyapi[cli]>=1.2.0" (when released)
-    "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli",
+    "nipyapi[cli]>=1.2.0",
 ]
 
 [dependency-groups]

@@ -1,3 +1,3 @@
 # NiPyAPI client library for Apache NiFi
-# Requires 1.1.0+ for env profile, bearer token auth, and Git registry support
-nipyapi>=1.1.0
+# Requires 1.2.0+ for CLI, CI module, and Git registry support
+nipyapi[cli]>=1.2.0

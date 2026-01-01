@@ -79,7 +79,7 @@ The `nipyapi` CLI provides high-level CI operations that both platforms use:
 
 ```bash
 # Install the CLI
-pip install "nipyapi[cli]"
+pip install "nipyapi[cli]>=1.2.0"
 
 # Run CI operations
 nipyapi ci deploy_flow
@@ -100,7 +100,7 @@ nipyapi ci get_status
 ```yaml
 deploy-flow:
   script:
-    - pip install "nipyapi[cli]"
+    - pip install "nipyapi[cli]>=1.2.0"
     - nipyapi ci deploy_flow | tee outputs.env
   variables:
     NIFI_BUCKET: flows

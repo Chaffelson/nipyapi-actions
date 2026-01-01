@@ -16,7 +16,7 @@ The simplest approach is to use the `nipyapi` CLI directly in your pipeline:
 deploy-to-nifi:
   image: python:3.11
   before_script:
-    - pip install -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+    - pip install -q "nipyapi[cli]>=1.2.0"
   script:
     - nipyapi ci ensure_registry | tee outputs.env
     - export $(grep -v '^#' outputs.env | xargs)
@@ -119,7 +119,7 @@ deploy-flow:
   stage: deploy
   image: python:3.11
   before_script:
-    - pip install -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+    - pip install -q "nipyapi[cli]>=1.2.0"
   script:
     - nipyapi ci deploy_flow | tee outputs.env
   artifacts:
@@ -133,7 +133,7 @@ start-flow:
       artifacts: true  # PROCESS_GROUP_ID automatically available
   image: python:3.11
   before_script:
-    - pip install -q "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+    - pip install -q "nipyapi[cli]>=1.2.0"
   script:
     - nipyapi ci start_flow
 ```
@@ -152,7 +152,7 @@ test-all:
     DOCKER_HOST: tcp://docker:2376
   before_script:
     - apk add --no-cache python3 py3-pip
-    - pip install --break-system-packages "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+    - pip install --break-system-packages "nipyapi[cli]>=1.2.0"
   script:
     # Start NiFi infrastructure
     - docker-compose up -d nifi

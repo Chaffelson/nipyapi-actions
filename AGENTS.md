@@ -36,7 +36,7 @@ Both platforms use the `nipyapi` CLI directly:
 
 ```bash
 # Install CLI
-pip install "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@feature/cli"
+pip install "nipyapi[cli]>=1.2.0"
 
 # Run operations (auto-detects CI environment)
 nipyapi ci ensure_registry
@@ -62,6 +62,12 @@ All operations are in `nipyapi.ci`:
 - `change_flow_version` - Change to specific version or latest
 - `revert_flow` - Revert uncommitted local changes
 - `cleanup` - Stop and delete process group
+- `purge_flowfiles` - Purge queued FlowFiles from connections
+- `export_flow_definition` - Export flow to JSON/YAML (no registry required)
+- `import_flow_definition` - Import flow from JSON/YAML (no registry required)
+- `list_registry_flows` - List flows available in a registry bucket
+- `get_flow_versions` - List available versions for a deployed flow
+- `get_flow_diff` - Check for local modifications before promotion
 
 ## GitLab Fragments
 

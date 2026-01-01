@@ -8,7 +8,7 @@ All commands are available via the `nipyapi` CLI:
 
 ```bash
 # Install CLI
-pip install "nipyapi[cli]"
+pip install "nipyapi[cli]>=1.2.0"
 
 # Run commands
 nipyapi ci ensure_registry
@@ -52,7 +52,7 @@ Both platforms use the same environment variables. The CLI reads these automatic
 ```yaml
 deploy-flow:
   script:
-    - pip install "nipyapi[cli]"
+    - pip install "nipyapi[cli]>=1.2.0"
     - nipyapi ci deploy_flow | tee -a outputs.env
   variables:
     NIFI_API_ENDPOINT: $NIFI_URL
@@ -174,7 +174,7 @@ Then deploy with `bucket: production` and `flow: my-flow`.
 ```yaml
 ensure-registry:
   script:
-    - pip install "nipyapi[cli]"
+    - pip install "nipyapi[cli]>=1.2.0"
     - nipyapi ci ensure_registry | tee outputs.env
   variables:
     NIFI_API_ENDPOINT: $NIFI_URL
