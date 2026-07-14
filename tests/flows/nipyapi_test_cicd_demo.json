@@ -45,7 +45,7 @@
         "bundle": {
           "artifact": "nifi-http-context-map-nar",
           "group": "org.apache.nifi",
-          "version": "2.7.2"
+          "version": "2.10.0"
         },
         "comments": "",
         "componentType": "CONTROLLER_SERVICE",
@@ -54,7 +54,7 @@
             "bundle": {
               "artifact": "nifi-standard-services-api-nar",
               "group": "org.apache.nifi",
-              "version": "2.7.2"
+              "version": "2.10.0"
             },
             "type": "org.apache.nifi.http.HttpContextMap"
           }
@@ -115,7 +115,7 @@
         "bundle": {
           "artifact": "nifi-standard-nar",
           "group": "org.apache.nifi",
-          "version": "2.7.2"
+          "version": "2.10.0"
         },
         "comments": "",
         "componentType": "PROCESSOR",
@@ -330,7 +330,7 @@
         "bundle": {
           "artifact": "nifi-standard-nar",
           "group": "org.apache.nifi",
-          "version": "2.7.2"
+          "version": "2.10.0"
         },
         "comments": "",
         "componentType": "PROCESSOR",
