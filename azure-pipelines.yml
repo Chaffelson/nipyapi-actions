@@ -74,16 +74,24 @@ steps:
   # ---------------------------------------------------------------------------
   - script: |
       set -e
-      # Install into a venv: system Python may be externally managed (PEP 668,
-      # e.g. Homebrew/uv-managed interpreters on self-hosted agents), which
-      # rejects `pip install`. Prepend the venv bin to PATH so the subsequent
-      # `nipyapi` steps resolve it. Works on Microsoft-hosted agents too.
-      python3 -m venv "$(Agent.TempDirectory)/nipyapi-venv"
-      echo "##vso[task.prependpath]$(Agent.TempDirectory)/nipyapi-venv/bin"
-      VENV="$(Agent.TempDirectory)/nipyapi-venv/bin"
-      "$VENV/python" -m pip install --upgrade pip
-      "$VENV/python" -m pip install "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@$(NIPYAPI_BRANCH)"
-      "$VENV/python" -c "import nipyapi; print('nipyapi', nipyapi.__version__)"
+      # Install into a venv. The system Python may be externally managed (PEP
+      # 668) on self-hosted agents; a uv-managed interpreter also can't bootstrap
+      # pip via stdlib venv/ensurepip. So prefer uv when present (self-hosted),
+      # and fall back to stdlib venv on standard agents (e.g. Microsoft-hosted).
+      # Prepend the venv bin to PATH so the subsequent `nipyapi` steps resolve it.
+      TEMP_VENV="$(Agent.TempDirectory)/nipyapi-venv"
+      SPEC="nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@$(NIPYAPI_BRANCH)"
+      UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
+      if [ -x "$UV" ]; then
+        "$UV" venv "$TEMP_VENV"
+        "$UV" pip install --python "$TEMP_VENV/bin/python" "$SPEC"
+      else
+        python3 -m venv "$TEMP_VENV"
+        "$TEMP_VENV/bin/python" -m pip install --upgrade pip
+        "$TEMP_VENV/bin/python" -m pip install "$SPEC"
+      fi
+      echo "##vso[task.prependpath]$TEMP_VENV/bin"
+      "$TEMP_VENV/bin/python" -c "import nipyapi; print('nipyapi', nipyapi.__version__)"
     displayName: 'Install nipyapi CLI (from feature branch)'
 
   - script: |
