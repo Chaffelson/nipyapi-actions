@@ -74,11 +74,17 @@ steps:
   # ---------------------------------------------------------------------------
   - script: |
       set -e
-      # Install into a venv. The system Python may be externally managed (PEP
-      # 668) on self-hosted agents; a uv-managed interpreter also can't bootstrap
-      # pip via stdlib venv/ensurepip. So prefer uv when present (self-hosted),
-      # and fall back to stdlib venv on standard agents (e.g. Microsoft-hosted).
-      # Prepend the venv bin to PATH so the subsequent `nipyapi` steps resolve it.
+      # WORKAROUND (feature-branch install): the Azure DevOps support is not yet
+      # on PyPI, so we install nipyapi from a git ref ($(NIPYAPI_BRANCH)). Once a
+      # release includes it, replace the SPEC below with a PyPI pin (e.g.
+      # "nipyapi[cli]==X.Y.Z") -- on a clean/Microsoft-hosted agent that reduces
+      # to a plain `pip install` / `uv run`.
+      #
+      # Install into a venv regardless: the system Python may be externally
+      # managed (PEP 668) on self-hosted agents, and a uv-managed interpreter
+      # can't bootstrap pip via stdlib venv/ensurepip. So prefer uv when present
+      # (self-hosted), and fall back to stdlib venv on standard agents (e.g.
+      # Microsoft-hosted). Prepend the venv bin to PATH so `nipyapi` steps resolve.
       TEMP_VENV="$(Agent.TempDirectory)/nipyapi-venv"
       SPEC="nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@$(NIPYAPI_BRANCH)"
       UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
