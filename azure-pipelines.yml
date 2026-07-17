@@ -74,9 +74,16 @@ steps:
   # ---------------------------------------------------------------------------
   - script: |
       set -e
-      python3 -m pip install --upgrade pip
-      python3 -m pip install "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@$(NIPYAPI_BRANCH)"
-      python3 -c "import nipyapi; print('nipyapi', nipyapi.__version__)"
+      # Install into a venv: system Python may be externally managed (PEP 668,
+      # e.g. Homebrew/uv-managed interpreters on self-hosted agents), which
+      # rejects `pip install`. Prepend the venv bin to PATH so the subsequent
+      # `nipyapi` steps resolve it. Works on Microsoft-hosted agents too.
+      python3 -m venv "$(Agent.TempDirectory)/nipyapi-venv"
+      echo "##vso[task.prependpath]$(Agent.TempDirectory)/nipyapi-venv/bin"
+      VENV="$(Agent.TempDirectory)/nipyapi-venv/bin"
+      "$VENV/python" -m pip install --upgrade pip
+      "$VENV/python" -m pip install "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@$(NIPYAPI_BRANCH)"
+      "$VENV/python" -c "import nipyapi; print('nipyapi', nipyapi.__version__)"
     displayName: 'Install nipyapi CLI (from feature branch)'
 
   - script: |
