@@ -85,6 +85,11 @@ steps:
       # can't bootstrap pip via stdlib venv/ensurepip. So prefer uv when present
       # (self-hosted), and fall back to stdlib venv on standard agents (e.g.
       # Microsoft-hosted). Prepend the venv bin to PATH so `nipyapi` steps resolve.
+      #
+      # SIMPLER ALTERNATIVE where uv is guaranteed on the agent: skip the venv and
+      # run each step as `uv run --with "<spec>" nipyapi ci ...` (uv builds an
+      # ephemeral env on demand). Once nipyapi[cli] is on PyPI that is just
+      # `uv run --with nipyapi[cli] nipyapi ci ...` -- no git ref, no venv.
       TEMP_VENV="$(Agent.TempDirectory)/nipyapi-venv"
       SPEC="nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@$(NIPYAPI_BRANCH)"
       UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
