@@ -8,6 +8,7 @@ CI/CD automation for Apache NiFi flows using [nipyapi](https://github.com/Chaffe
 |----------|--------|-------|
 | GitHub Actions | Stable | [GitHub Actions Guide](docs/github-actions.md) |
 | GitLab CI/CD | Stable | [GitLab CI Guide](docs/gitlab-ci.md) |
+| Azure Pipelines | Stable | [Azure Pipelines Guide](docs/azure-pipelines.md) |
 
 ## What It Does
 
@@ -74,12 +75,33 @@ deploy-flow:
 
 See [GitLab CI Guide](docs/gitlab-ci.md) for complete setup.
 
+### Azure Pipelines
+
+```yaml
+variables:
+  - group: nipyapi-ado          # service principal creds (NIFI_ADO_*)
+steps:
+  - script: nipyapi ci ensure_registry
+    name: registry
+    env:
+      NIFI_ADO_CLIENT_SECRET: $(NIFI_ADO_CLIENT_SECRET)
+  - script: nipyapi ci deploy_flow
+    env:
+      NIFI_REGISTRY_CLIENT_ID: $(registry.registry_client_id)
+      NIFI_BUCKET: flows
+      NIFI_FLOW: my-flow
+```
+
+Azure DevOps uses NiFi's service-principal-based Azure DevOps Flow Registry
+Client and reads flows from an Azure Repos Git repo. See
+[Azure Pipelines Guide](docs/azure-pipelines.md) for complete setup.
+
 ## Requirements
 
-- Apache NiFi 2.x with Git-based Flow Registry Client (tested against NiFi 2.7.2)
+- Apache NiFi 2.x with Git-based Flow Registry Client (tested against NiFi 2.7.2; Azure DevOps registry client requires 2.10.0+)
 - nipyapi 1.2.0+ with CLI (`pip install "nipyapi[cli]"`)
 - Python 3.9+
-- Personal Access Token for your Git provider (GitHub or GitLab)
+- A credential for your Git provider: a Personal Access Token (GitHub or GitLab) or a service principal (Azure DevOps)
 
 ## Documentation
 
@@ -87,6 +109,7 @@ See [GitLab CI Guide](docs/gitlab-ci.md) for complete setup.
 |-------|-------------|
 | [GitHub Actions Guide](docs/github-actions.md) | Setup and usage for GitHub Actions |
 | [GitLab CI Guide](docs/gitlab-ci.md) | Setup and usage for GitLab CI/CD |
+| [Azure Pipelines Guide](docs/azure-pipelines.md) | Setup and usage for Azure DevOps Pipelines |
 | [Commands Reference](docs/commands.md) | All commands and options |
 | [How It Works](docs/how-it-works.md) | Architecture overview |
 | [GitOps Guide](docs/gitops.md) | Feature branches and promotion patterns |

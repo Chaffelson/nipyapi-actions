@@ -1,0 +1,199 @@
+# Azure DevOps Pipelines for NiPyAPI Actions
+#
+# Full NiFi flow lifecycle driven by the nipyapi CLI, using NiFi's native
+# Azure DevOps Flow Registry Client (service-principal auth). This mirrors the
+# GitHub Actions (.github/workflows/ci.yml) and GitLab (.gitlab-ci.yml) examples.
+#
+# Model (same as GitHub/GitLab): the flow definitions live in THIS repo under
+# tests/flows/*.json. Push a copy of this repo to an Azure Repos Git repo and
+# the Azure DevOps Flow Registry Client reads the seeded flows from it
+# (bucket = folder "flows", flow = filename, version = commit SHA).
+#
+# Prerequisites (see docs/azure-pipelines.md):
+#   - An Entra-backed Azure DevOps organization + a service principal (app
+#     registration) with Contribute on the Azure Repos repo that holds the flows.
+#   - A variable group named "nipyapi-ado" linked to this pipeline with:
+#       NIFI_ADO_TENANT_ID, NIFI_ADO_CLIENT_ID, NIFI_ADO_ORG, NIFI_ADO_PROJECT,
+#       NIFI_ADO_REPO           (plain variables)
+#       NIFI_ADO_CLIENT_SECRET  (SECRET variable - lock icon)
+#   - A self-hosted agent (Microsoft-hosted also works once your org has the
+#     free parallelism grant). The agent needs Docker + Python 3.11 + make + git.
+#
+# Azure DevOps support requires nipyapi with the AzureDevOps registry helpers.
+# Until that ships to PyPI, the pipeline installs nipyapi from a git ref
+# (NIPYAPI_BRANCH). Switch to a PyPI pin once released.
+
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: 'Default'          # self-hosted agent pool; use "vmImage: ubuntu-latest" for Microsoft-hosted
+
+variables:
+  # Service principal + Azure DevOps coordinates (secret + plain vars)
+  - group: nipyapi-ado
+
+  # NiFi connection (local dockerised NiFi brought up by this pipeline)
+  - name: NIFI_API_ENDPOINT
+    value: 'https://localhost:9447/nifi-api'
+  - name: NIFI_USERNAME
+    value: 'einstein'
+  - name: NIFI_PASSWORD
+    value: 'password1234'
+  - name: NIFI_VERIFY_SSL
+    value: 'false'
+
+  # Registry: use NiFi's native Azure DevOps Flow Registry Client
+  - name: NIFI_REGISTRY_PROVIDER
+    value: 'azuredevops'
+  - name: NIFI_REGISTRY_CLIENT_NAME
+    value: 'AzureDevOps-FlowRegistry'
+  - name: NIFI_REPOSITORY_PATH
+    value: 'tests'
+  - name: NIFI_BUCKET
+    value: 'flows'
+  - name: NIFI_FLOW
+    value: 'nipyapi_test_cicd_demo'
+
+  # Infrastructure: nipyapi branch carrying the Azure DevOps support + NiFi image
+  - name: NIPYAPI_BRANCH
+    value: 'feature/azuredevops-registry'
+  - name: NIFI_VERSION
+    value: '2.10.0'
+
+  # The nipyapi CLI auto-detects Azure Pipelines (TF_BUILD) and emits
+  # ##vso[task.setvariable ...] output variables; set explicitly for clarity.
+  - name: NIFI_OUTPUT_FORMAT
+    value: 'azurepipelines'
+
+steps:
+  # ---------------------------------------------------------------------------
+  # Setup
+  # ---------------------------------------------------------------------------
+  - script: |
+      set -e
+      python3 -m pip install --upgrade pip
+      python3 -m pip install "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@$(NIPYAPI_BRANCH)"
+      python3 -c "import nipyapi; print('nipyapi', nipyapi.__version__)"
+    displayName: 'Install nipyapi CLI (from feature branch)'
+
+  - script: |
+      set -e
+      git clone --depth 1 --branch "$(NIPYAPI_BRANCH)" \
+        https://github.com/Chaffelson/nipyapi.git nipyapi-infra
+      cd nipyapi-infra
+      make certs
+      NIFI_VERSION=$(NIFI_VERSION) make up NIPYAPI_PROFILE=github-cicd
+      echo "Waiting for NiFi at $(NIFI_API_ENDPOINT) ..."
+      for i in $(seq 1 60); do
+        code=$(curl -ks -o /dev/null -w "%{http_code}" "$(NIFI_API_ENDPOINT)/flow/about" || echo 000)
+        if [ "$code" = "200" ] || [ "$code" = "401" ] || [ "$code" = "403" ]; then
+          echo "NiFi is ready (HTTP $code)"; exit 0
+        fi
+        echo "attempt $i/60 - HTTP $code, waiting 5s..."; sleep 5
+      done
+      echo "ERROR: NiFi did not become ready"; docker logs nifi-github 2>&1 | tail -30 || true; exit 1
+    displayName: 'Start NiFi ($(NIFI_VERSION), github-cicd profile)'
+
+  # ---------------------------------------------------------------------------
+  # Lifecycle - each step emits ##vso[task.setvariable] outputs consumed by name
+  # ---------------------------------------------------------------------------
+
+  # ensure-registry is the ONLY step that needs the service principal secret:
+  # it creates/configures the OAuth2 + Web Client controller services and the
+  # Azure DevOps registry client. Downstream commands talk to NiFi, which uses
+  # the stored controller-service credentials.
+  - script: nipyapi ci ensure_registry
+    name: registry
+    displayName: 'ensure-registry (Azure DevOps provider)'
+    env:
+      NIFI_ADO_CLIENT_SECRET: $(NIFI_ADO_CLIENT_SECRET)   # secret vars must be mapped explicitly
+
+  - script: |
+      set -e
+      echo "Registry client: $(registry.registry_client_id)"
+      test -n "$(registry.registry_client_id)" || { echo "ERROR: registry_client_id empty"; exit 1; }
+    displayName: 'verify ensure-registry output'
+
+  - script: nipyapi ci list_registry_flows
+    name: listflows
+    displayName: 'list-registry-flows'
+    env:
+      NIFI_REGISTRY_CLIENT_ID: $(registry.registry_client_id)
+
+  - script: |
+      set -e
+      echo "Flow count: $(listflows.flow_count)"
+      test "$(listflows.flow_count)" != "0" || { echo "ERROR: no flows in bucket"; exit 1; }
+    displayName: 'verify list-registry-flows output'
+
+  - script: nipyapi ci deploy_flow
+    name: deploy
+    displayName: 'deploy-flow'
+    env:
+      NIFI_REGISTRY_CLIENT_ID: $(registry.registry_client_id)
+
+  - script: |
+      set -e
+      echo "Process group: $(deploy.process_group_id) version $(deploy.deployed_version)"
+      test -n "$(deploy.process_group_id)" || { echo "ERROR: process_group_id empty"; exit 1; }
+    displayName: 'verify deploy-flow output'
+
+  - script: nipyapi ci get_flow_versions
+    name: versions
+    displayName: 'get-flow-versions'
+    env:
+      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+
+  - script: nipyapi ci start_flow
+    name: start
+    displayName: 'start-flow'
+    env:
+      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+
+  - script: nipyapi ci get_status
+    name: status
+    displayName: 'get-status'
+    env:
+      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+
+  - script: nipyapi ci configure_params
+    name: params
+    displayName: 'configure-params (parameter injection)'
+    env:
+      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+      NIFI_PARAMETERS: '{"version": "$(Build.BuildId)"}'
+
+  - script: nipyapi ci change_flow_version
+    name: changev
+    displayName: 'change-version (to latest)'
+    env:
+      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+
+  - script: nipyapi ci get_flow_diff
+    name: diff
+    displayName: 'get-diff'
+    env:
+      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+
+  # ---------------------------------------------------------------------------
+  # Teardown - always run, even on failure
+  # ---------------------------------------------------------------------------
+  - script: nipyapi ci stop_flow --disable_controllers
+    displayName: 'stop-flow'
+    condition: and(always(), ne(variables['deploy.process_group_id'], ''))
+    env:
+      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+
+  - script: nipyapi ci cleanup --delete_parameter_context --force
+    displayName: 'cleanup'
+    condition: and(always(), ne(variables['deploy.process_group_id'], ''))
+    env:
+      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+
+  - script: |
+      cd nipyapi-infra && NIFI_VERSION=$(NIFI_VERSION) make down || true
+    displayName: 'Stop NiFi infrastructure'
+    condition: always()

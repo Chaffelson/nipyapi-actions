@@ -23,8 +23,9 @@ NiPyAPI Actions enables automated testing and deployment of Apache NiFi flows us
 |----------|--------|-------|
 | GitHub Actions | Stable | [GitHub Actions Guide](github-actions.md) |
 | GitLab CI/CD | Stable | [GitLab CI Guide](gitlab-ci.md) |
+| Azure Pipelines | Stable | [Azure Pipelines Guide](azure-pipelines.md) |
 
-Both platforms use the same core operations and environment variables.
+All platforms use the same core operations and environment variables.
 
 ## Key Components
 
@@ -36,8 +37,9 @@ Apache NiFi 2.x includes native **Git Flow Registry Clients** that can:
 - Deploy specific versions or branches to the NiFi canvas
 
 Supported providers:
-- **GitHub Flow Registry Client** - for GitHub repositories
-- **GitLab Flow Registry Client** - for GitLab repositories (planned)
+- **GitHub Flow Registry Client** - for GitHub repositories (Personal Access Token auth)
+- **GitLab Flow Registry Client** - for GitLab repositories (Personal Access Token auth)
+- **Azure DevOps Flow Registry Client** - for Azure Repos Git repositories (service-principal auth)
 
 This is a built-in NiFi feature - no separate NiFi Registry instance is required.
 
@@ -163,6 +165,7 @@ The NiFi Git Flow Registry Client authenticates to your Git provider using a Per
 
 - **GitHub**: Fine-grained PAT with read access to Contents and Metadata
 - **GitLab**: Project access token with read_repository scope
+- **Azure DevOps**: a service principal (Entra app registration) with Contribute on the repo; NiFi authenticates via OAuth2 client credentials (no PAT option)
 
 ### NiFi Authentication
 
@@ -190,6 +193,7 @@ NiPyAPI Actions is designed for the Git Flow Registry Client approach. If you're
 
 - [GitHub Actions Guide](github-actions.md) - GitHub Actions setup
 - [GitLab CI Guide](gitlab-ci.md) - GitLab CI setup
+- [Azure Pipelines Guide](azure-pipelines.md) - Azure DevOps Pipelines setup
 - [Commands Reference](commands.md) - All commands and options
 - [GitOps Guide](gitops.md) - Feature branches and promotion patterns
 - [Security Guide](security.md) - Authentication and secrets
