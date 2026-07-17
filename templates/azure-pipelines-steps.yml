@@ -55,11 +55,18 @@ parameters:
     type: object
     default: {}
     # Extra per-step environment variables (e.g. secret mapping, upstream outputs).
+  - name: condition
+    type: string
+    default: ''
+    # Optional step condition, e.g. "and(always(), ne(variables['deploy.process_group_id'], ''))"
+    # for teardown steps that should run even when an earlier step failed.
 
 steps:
   - script: nipyapi ci ${{ parameters.command }} ${{ parameters.args }}
     name: ${{ parameters.name }}
     displayName: ${{ coalesce(parameters.displayName, format('nipyapi ci {0}', parameters.command)) }}
+    ${{ if ne(parameters.condition, '') }}:
+      condition: ${{ parameters.condition }}
     ${{ if gt(length(parameters.env), 0) }}:
       env:
         ${{ each pair in parameters.env }}:

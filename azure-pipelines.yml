@@ -120,11 +120,13 @@ steps:
   # it creates/configures the OAuth2 + Web Client controller services and the
   # Azure DevOps registry client. Downstream commands talk to NiFi, which uses
   # the stored controller-service credentials.
-  - script: nipyapi ci ensure_registry
-    name: registry
-    displayName: 'ensure-registry (Azure DevOps provider)'
-    env:
-      NIFI_ADO_CLIENT_SECRET: $(NIFI_ADO_CLIENT_SECRET)   # secret vars must be mapped explicitly
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: ensure_registry
+      name: registry
+      displayName: 'ensure-registry (Azure DevOps provider)'
+      env:
+        NIFI_ADO_CLIENT_SECRET: $(NIFI_ADO_CLIENT_SECRET)   # secret vars must be mapped explicitly
 
   - script: |
       set -e
@@ -132,11 +134,13 @@ steps:
       test -n "$(registry.registry_client_id)" || { echo "ERROR: registry_client_id empty"; exit 1; }
     displayName: 'verify ensure-registry output'
 
-  - script: nipyapi ci list_registry_flows
-    name: listflows
-    displayName: 'list-registry-flows'
-    env:
-      NIFI_REGISTRY_CLIENT_ID: $(registry.registry_client_id)
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: list_registry_flows
+      name: listflows
+      displayName: 'list-registry-flows'
+      env:
+        NIFI_REGISTRY_CLIENT_ID: $(registry.registry_client_id)
 
   - script: |
       set -e
@@ -144,11 +148,13 @@ steps:
       test "$(listflows.flow_count)" != "0" || { echo "ERROR: no flows in bucket"; exit 1; }
     displayName: 'verify list-registry-flows output'
 
-  - script: nipyapi ci deploy_flow
-    name: deploy
-    displayName: 'deploy-flow'
-    env:
-      NIFI_REGISTRY_CLIENT_ID: $(registry.registry_client_id)
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: deploy_flow
+      name: deploy
+      displayName: 'deploy-flow'
+      env:
+        NIFI_REGISTRY_CLIENT_ID: $(registry.registry_client_id)
 
   - script: |
       set -e
@@ -156,57 +162,77 @@ steps:
       test -n "$(deploy.process_group_id)" || { echo "ERROR: process_group_id empty"; exit 1; }
     displayName: 'verify deploy-flow output'
 
-  - script: nipyapi ci get_flow_versions
-    name: versions
-    displayName: 'get-flow-versions'
-    env:
-      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: get_flow_versions
+      name: versions
+      displayName: 'get-flow-versions'
+      env:
+        NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
 
-  - script: nipyapi ci start_flow
-    name: start
-    displayName: 'start-flow'
-    env:
-      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: start_flow
+      name: start
+      displayName: 'start-flow'
+      env:
+        NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
 
-  - script: nipyapi ci get_status
-    name: status
-    displayName: 'get-status'
-    env:
-      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: get_status
+      name: status
+      displayName: 'get-status'
+      env:
+        NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
 
-  - script: nipyapi ci configure_params
-    name: params
-    displayName: 'configure-params (parameter injection)'
-    env:
-      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
-      NIFI_PARAMETERS: '{"version": "$(Build.BuildId)"}'
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: configure_params
+      name: params
+      displayName: 'configure-params (parameter injection)'
+      env:
+        NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+        NIFI_PARAMETERS: '{"version": "$(Build.BuildId)"}'
 
-  - script: nipyapi ci change_flow_version
-    name: changev
-    displayName: 'change-version (to latest)'
-    env:
-      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: change_flow_version
+      name: changev
+      displayName: 'change-version (to latest)'
+      env:
+        NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
 
-  - script: nipyapi ci get_flow_diff
-    name: diff
-    displayName: 'get-diff'
-    env:
-      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: get_flow_diff
+      name: diff
+      displayName: 'get-diff'
+      env:
+        NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
 
   # ---------------------------------------------------------------------------
   # Teardown - always run, even on failure
   # ---------------------------------------------------------------------------
-  - script: nipyapi ci stop_flow --disable_controllers
-    displayName: 'stop-flow'
-    condition: and(always(), ne(variables['deploy.process_group_id'], ''))
-    env:
-      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: stop_flow
+      name: stopflow
+      args: '--disable_controllers'
+      displayName: 'stop-flow'
+      condition: and(always(), ne(variables['deploy.process_group_id'], ''))
+      env:
+        NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
 
-  - script: nipyapi ci cleanup --delete_parameter_context --force
-    displayName: 'cleanup'
-    condition: and(always(), ne(variables['deploy.process_group_id'], ''))
-    env:
-      NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
+  - template: templates/azure-pipelines-steps.yml
+    parameters:
+      command: cleanup
+      name: cleanupstep
+      args: '--delete_parameter_context --force'
+      displayName: 'cleanup'
+      condition: and(always(), ne(variables['deploy.process_group_id'], ''))
+      env:
+        NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
 
   - script: |
       cd nipyapi-infra && NIFI_VERSION=$(NIFI_VERSION) make down || true
