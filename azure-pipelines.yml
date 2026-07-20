@@ -19,9 +19,9 @@
 #   - A self-hosted agent (Microsoft-hosted also works once your org has the
 #     free parallelism grant). The agent needs Docker + Python 3.11 + make + git.
 #
-# Azure DevOps support requires nipyapi with the AzureDevOps registry helpers.
-# Until that ships to PyPI, the pipeline installs nipyapi from a git ref
-# (NIPYAPI_BRANCH). Switch to a PyPI pin once released.
+# Azure DevOps support requires nipyapi >= 1.7.0 (the release that adds the
+# AzureDevOps registry helpers). The pipeline installs the pinned release from
+# PyPI (NIPYAPI_VERSION).
 
 trigger:
   branches:
@@ -57,9 +57,10 @@ variables:
   - name: NIFI_FLOW
     value: 'nipyapi_test_cicd_demo'
 
-  # Infrastructure: nipyapi branch carrying the Azure DevOps support + NiFi image
-  - name: NIPYAPI_BRANCH
-    value: 'feature/azuredevops-registry'
+  # nipyapi release providing the Azure DevOps support (>= 1.7.0); also used to
+  # pin the dockerised NiFi infra (cloned at the matching git tag)
+  - name: NIPYAPI_VERSION
+    value: '1.7.0'
   - name: NIFI_VERSION
     value: '2.10.0'
 
@@ -74,24 +75,17 @@ steps:
   # ---------------------------------------------------------------------------
   - script: |
       set -e
-      # WORKAROUND (feature-branch install): the Azure DevOps support is not yet
-      # on PyPI, so we install nipyapi from a git ref ($(NIPYAPI_BRANCH)). Once a
-      # release includes it, replace the SPEC below with a PyPI pin (e.g.
-      # "nipyapi[cli]==X.Y.Z") -- on a clean/Microsoft-hosted agent that reduces
-      # to a plain `pip install` / `uv run`.
+      # Install the pinned nipyapi release from PyPI. We install into a venv
+      # because the system Python may be externally managed (PEP 668) on
+      # self-hosted agents; prefer uv when present (self-hosted), and fall back
+      # to the stdlib venv on standard agents (e.g. Microsoft-hosted). Prepend
+      # the venv bin to PATH so the `nipyapi` steps resolve.
       #
-      # Install into a venv regardless: the system Python may be externally
-      # managed (PEP 668) on self-hosted agents, and a uv-managed interpreter
-      # can't bootstrap pip via stdlib venv/ensurepip. So prefer uv when present
-      # (self-hosted), and fall back to stdlib venv on standard agents (e.g.
-      # Microsoft-hosted). Prepend the venv bin to PATH so `nipyapi` steps resolve.
-      #
-      # SIMPLER ALTERNATIVE where uv is guaranteed on the agent: skip the venv and
-      # run each step as `uv run --with "<spec>" nipyapi ci ...` (uv builds an
-      # ephemeral env on demand). Once nipyapi[cli] is on PyPI that is just
-      # `uv run --with nipyapi[cli] nipyapi ci ...` -- no git ref, no venv.
+      # SIMPLER ALTERNATIVE where uv is guaranteed on the agent: skip the venv
+      # and run each step as `uv run --with "nipyapi[cli]==$(NIPYAPI_VERSION)"
+      # nipyapi ci ...` (uv builds an ephemeral env on demand).
       TEMP_VENV="$(Agent.TempDirectory)/nipyapi-venv"
-      SPEC="nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@$(NIPYAPI_BRANCH)"
+      SPEC="nipyapi[cli]==$(NIPYAPI_VERSION)"
       UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
       if [ -x "$UV" ]; then
         "$UV" venv "$TEMP_VENV"
@@ -103,11 +97,11 @@ steps:
       fi
       echo "##vso[task.prependpath]$TEMP_VENV/bin"
       "$TEMP_VENV/bin/python" -c "import nipyapi; print('nipyapi', nipyapi.__version__)"
-    displayName: 'Install nipyapi CLI (from feature branch)'
+    displayName: 'Install nipyapi CLI ($(NIPYAPI_VERSION) from PyPI)'
 
   - script: |
       set -e
-      git clone --depth 1 --branch "$(NIPYAPI_BRANCH)" \
+      git clone --depth 1 --branch "v$(NIPYAPI_VERSION)" \
         https://github.com/Chaffelson/nipyapi.git nipyapi-infra
       cd nipyapi-infra
       make certs

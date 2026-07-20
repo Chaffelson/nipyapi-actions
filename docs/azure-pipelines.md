@@ -104,7 +104,7 @@ variables:
     value: 'my-flow'
 
 steps:
-  - script: pip install "nipyapi[cli]>=1.2.0"
+  - script: pip install "nipyapi[cli]>=1.7.0"
     displayName: 'Install nipyapi CLI'
 
   - script: nipyapi ci ensure_registry
@@ -122,9 +122,9 @@ steps:
       NIFI_PROCESS_GROUP_ID: $(deploy.process_group_id)
 ```
 
-> Azure DevOps support requires a version of `nipyapi` that includes the
-> Azure DevOps registry helpers. Until that ships to PyPI, install from a git
-> ref instead: `pip install "nipyapi[cli] @ git+https://github.com/Chaffelson/nipyapi.git@<branch>"`.
+> Azure DevOps support requires `nipyapi >= 1.7.0` (the release that adds the
+> Azure DevOps registry helpers). Install the pinned release from PyPI:
+> `pip install "nipyapi[cli]==1.7.0"`.
 
 See [azure-pipelines.yml](../azure-pipelines.yml) for the full end-to-end example
 (brings up dockerised NiFi, runs the complete lifecycle, tears down).
