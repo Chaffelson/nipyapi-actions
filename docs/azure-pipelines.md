@@ -123,8 +123,8 @@ steps:
 ```
 
 > Azure DevOps support requires `nipyapi >= 1.7.0` (the release that adds the
-> Azure DevOps registry helpers). Install the pinned release from PyPI:
-> `pip install "nipyapi[cli]==1.7.0"`.
+> Azure DevOps registry helpers). Install from PyPI with a floor pin:
+> `pip install "nipyapi[cli]>=1.7.0"`.
 
 See [azure-pipelines.yml](../azure-pipelines.yml) for the full end-to-end example
 (brings up dockerised NiFi, runs the complete lifecycle, tears down).

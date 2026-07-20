@@ -20,8 +20,8 @@
 #     free parallelism grant). The agent needs Docker + Python 3.11 + make + git.
 #
 # Azure DevOps support requires nipyapi >= 1.7.0 (the release that adds the
-# AzureDevOps registry helpers). The pipeline installs the pinned release from
-# PyPI (NIPYAPI_VERSION).
+# AzureDevOps registry helpers). The pipeline installs the current release from
+# PyPI, floor-pinned to >= 1.7.0 (matching the GitHub/GitLab examples).
 
 trigger:
   branches:
@@ -57,10 +57,10 @@ variables:
   - name: NIFI_FLOW
     value: 'nipyapi_test_cicd_demo'
 
-  # nipyapi release providing the Azure DevOps support (>= 1.7.0); also used to
-  # pin the dockerised NiFi infra (cloned at the matching git tag)
-  - name: NIPYAPI_VERSION
-    value: '1.7.0'
+  # nipyapi git ref used only to bring up the dockerised NiFi infra (Makefile +
+  # compose); tracks main, matching the GitHub/GitLab examples
+  - name: NIPYAPI_BRANCH
+    value: 'main'
   - name: NIFI_VERSION
     value: '2.10.0'
 
@@ -82,10 +82,12 @@ steps:
       # the venv bin to PATH so the `nipyapi` steps resolve.
       #
       # SIMPLER ALTERNATIVE where uv is guaranteed on the agent: skip the venv
-      # and run each step as `uv run --with "nipyapi[cli]==$(NIPYAPI_VERSION)"
-      # nipyapi ci ...` (uv builds an ephemeral env on demand).
+      # and run each step as `uv run --with "nipyapi[cli]>=1.7.0" nipyapi ci ...`
+      # (uv builds an ephemeral env on demand).
       TEMP_VENV="$(Agent.TempDirectory)/nipyapi-venv"
-      SPEC="nipyapi[cli]==$(NIPYAPI_VERSION)"
+      # >= 1.7.0 is the floor that introduced Azure DevOps support; picks up
+      # newer releases automatically (matches the GitHub/GitLab examples).
+      SPEC="nipyapi[cli]>=1.7.0"
       UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
       if [ -x "$UV" ]; then
         "$UV" venv "$TEMP_VENV"
@@ -97,11 +99,11 @@ steps:
       fi
       echo "##vso[task.prependpath]$TEMP_VENV/bin"
       "$TEMP_VENV/bin/python" -c "import nipyapi; print('nipyapi', nipyapi.__version__)"
-    displayName: 'Install nipyapi CLI ($(NIPYAPI_VERSION) from PyPI)'
+    displayName: 'Install nipyapi CLI (>=1.7.0 from PyPI)'
 
   - script: |
       set -e
-      git clone --depth 1 --branch "v$(NIPYAPI_VERSION)" \
+      git clone --depth 1 --branch "$(NIPYAPI_BRANCH)" \
         https://github.com/Chaffelson/nipyapi.git nipyapi-infra
       cd nipyapi-infra
       make certs
