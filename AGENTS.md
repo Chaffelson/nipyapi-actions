@@ -24,11 +24,20 @@ make infra-ready           # Wait for NiFi
 ```
 nipyapi-actions/
 ├── templates/
-│   └── fragments.yml      # Reusable CLI commands for GitLab CI
+│   ├── fragments.yml                # Reusable CLI commands for GitLab CI
+│   └── azure-pipelines-steps.yml    # Reusable step template for Azure Pipelines
 ├── action.yml             # GitHub Actions definition (uses nipyapi CLI)
 ├── .gitlab-ci.yml         # GitLab CI example (uses nipyapi CLI)
+├── azure-pipelines.yml    # Azure Pipelines example (uses nipyapi CLI)
 └── docs/                  # Platform-specific guides
 ```
+
+Azure DevOps differs from GitHub/GitLab: NiFi's Azure DevOps Flow Registry
+Client uses **service-principal** auth (not a PAT) and reads flows only from
+**Azure Repos Git**. The CLI auto-detects Azure Pipelines via `TF_BUILD` and
+emits `##vso[task.setvariable ...;isOutput=true]` outputs. Keep
+`azure-pipelines-steps.yml` in sync with `azure-pipelines.yml` (same rule as
+fragments below).
 
 ## CLI Usage
 

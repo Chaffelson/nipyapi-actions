@@ -1,0 +1,73 @@
+# NiPyAPI Actions - Azure Pipelines step template
+#
+# Reusable step for a single `nipyapi ci` operation. This is the Azure Pipelines
+# analog of templates/fragments.yml (GitLab) and action.yml (GitHub Actions).
+#
+# Usage:
+#   resources:
+#     repositories:
+#       - repository: nipyapi-actions
+#         type: git                 # or github
+#         name: <project>/nipyapi-actions
+#
+#   steps:
+#     - template: templates/azure-pipelines-steps.yml@nipyapi-actions
+#       parameters:
+#         command: ensure_registry
+#         name: registry            # reference outputs later as $(registry.registry_client_id)
+#         env:
+#           NIFI_ADO_CLIENT_SECRET: $(NIFI_ADO_CLIENT_SECRET)   # map secret vars explicitly
+#
+#     - template: templates/azure-pipelines-steps.yml@nipyapi-actions
+#       parameters:
+#         command: deploy_flow
+#         name: deploy
+#         env:
+#           NIFI_REGISTRY_CLIENT_ID: $(registry.registry_client_id)
+#
+# The nipyapi CLI auto-detects Azure Pipelines (TF_BUILD) and emits
+# ##vso[task.setvariable variable=<key>;isOutput=true]<value> for each output,
+# referenceable in later steps as $(<name>.<key>).
+#
+# Required pipeline variables (typically from a linked "nipyapi-ado" variable group
+# and pipeline-level variables): NIFI_API_ENDPOINT, NIFI_USERNAME/NIFI_PASSWORD or
+# NIFI_BEARER_TOKEN, NIFI_VERIFY_SSL, NIFI_REGISTRY_PROVIDER=azuredevops,
+# NIFI_ADO_TENANT_ID/CLIENT_ID/CLIENT_SECRET/ORG/PROJECT/REPO, NIFI_BUCKET, NIFI_FLOW.
+
+parameters:
+  - name: command
+    type: string
+    # e.g. ensure_registry, list_registry_flows, deploy_flow, get_flow_versions,
+    # start_flow, get_status, configure_params, change_flow_version, get_flow_diff,
+    # revert_flow, stop_flow, purge_flowfiles, cleanup, export_flow_definition,
+    # import_flow_definition
+  - name: name
+    type: string
+    # Step reference name used to read outputs downstream as $(name.<output_key>).
+  - name: displayName
+    type: string
+    default: ''
+  - name: args
+    type: string
+    default: ''
+    # Extra CLI flags, e.g. '--disable_controllers' or '--delete_parameter_context --force'
+  - name: env
+    type: object
+    default: {}
+    # Extra per-step environment variables (e.g. secret mapping, upstream outputs).
+  - name: condition
+    type: string
+    default: ''
+    # Optional step condition, e.g. "and(always(), ne(variables['deploy.process_group_id'], ''))"
+    # for teardown steps that should run even when an earlier step failed.
+
+steps:
+  - script: nipyapi ci ${{ parameters.command }} ${{ parameters.args }}
+    name: ${{ parameters.name }}
+    displayName: ${{ coalesce(parameters.displayName, format('nipyapi ci {0}', parameters.command)) }}
+    ${{ if ne(parameters.condition, '') }}:
+      condition: ${{ parameters.condition }}
+    ${{ if gt(length(parameters.env), 0) }}:
+      env:
+        ${{ each pair in parameters.env }}:
+          ${{ pair.key }}: ${{ pair.value }}
